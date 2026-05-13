@@ -48,10 +48,21 @@ if [ -z "$GRAFANA_PASSWORD" ]; then
     GRAFANA_PASSWORD="admin"
 fi
 
-# Check if user exists, create if not
+# Check if user exists
 if ! id -u "$SYSTEM_USER" &>/dev/null; then
-    echo "User $SYSTEM_USER does not exist. Creating it..."
-    useradd -s /sbin/nologin "$SYSTEM_USER"
+    # Ask user if they want to create the user
+    echo "User $SYSTEM_USER does not exist. Would you like to create it?"
+    read -r -p "Create user? (y/n): " CREATE_USER
+    echo ""
+    
+    if [[ "$CREATE_USER" =~ ^[Yy][EeSs]$ ]]; then
+        echo "Creating user $SYSTEM_USER..."
+        useradd -s /sbin/nologin "$SYSTEM_USER"
+        echo "User created successfully."
+    else
+        echo "Error: User $SYSTEM_USER does not exist. Please create the user manually or run this script with an existing user."
+        exit 1
+    fi
 fi
 SYSTEM_UID=$(id -u "$SYSTEM_USER")
 SYSTEM_GID=$(id -g "$SYSTEM_USER")
@@ -121,15 +132,25 @@ echo "  WorkingDirectory=${BASE_DIR}"
 echo "  User=${SYSTEM_USER}"
 echo "  Group=${SYSTEM_USER}"
 
+# Ask if user wants to set up systemd service
+echo "Would you like to install systemd service unit system wide?"
+read -r -p "Set up systemd? (y/n): " SETUP_SYSTEMD
+echo ""
+
 # Copy systemd unit file to systemd directory and enable it
-echo "Setting up systemd service..."
-SYSTEMD_DIR="/etc/systemd/system"
-mkdir -p "${SYSTEMD_DIR}"
-cp "${BASE_DIR}/monitoring.service" "${SYSTEMD_DIR}/monitoring.service"
-systemctl daemon-reload
+if [[ "$SETUP_SYSTEMD" =~ ^[Yy][EeSs]$ ]]; then
+    echo "Setting up systemd service..."
+    SYSTEMD_DIR="/etc/systemd/system"
+    mkdir -p "${SYSTEMD_DIR}"
+    cp "${BASE_DIR}/monitoring.service" "${SYSTEMD_DIR}/monitoring.service"
+    systemctl daemon-reload
+
+    echo "systemd service configured!"
+    echo "Next steps:"
+    echo "1. Enable systemd service: sudo systemctl enable monitoring.service"
+    echo "2. Start systemd service: sudo systemctl start monitoring.service"
+else
+    echo "Skipping systemd setup. You can manually configure services if needed."
+fi
 
 echo "Installation complete!"
-echo ""
-echo "Next steps:"
-echo "1. Enable systemd service: sudo systemctl enable monitoring.service"
-echo "2. Start systemd service: sudo systemctl start monitoring.service"
