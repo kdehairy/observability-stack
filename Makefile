@@ -1,0 +1,151 @@
+SHELL        := /bin/bash
+.ONESHELL:
+
+PREFIX          ?=
+CONF_DEST       := $(PREFIX)/etc/monitoring/monitoring.conf
+SERVICE_SRC     := monitoring.service
+SERVICE_DEST    := $(PREFIX)/etc/systemd/system/monitoring.service
+NFTABLES_SRC    := nftables.conf
+NFTABLES_DEST   := $(PREFIX)/etc/nftables.conf
+BASE_DIR        := $(shell pwd)
+
+.PHONY: help config service install uninstall firewall enable start stop status logs
+
+help:
+	@echo "Usage: sudo make <target>"
+	echo ""
+	echo "Setup:"
+	echo "  config   Prompt for parameters, write $(CONF_DEST), create data dirs"
+	echo "  service  Render and install the systemd unit file from $(CONF_DEST)"
+	echo "  install    Run config then service"
+	echo "  uninstall  Disable and remove the systemd unit and config file"
+	echo "  firewall   Render and apply nftables rules (requires config)"
+	echo ""
+	echo "Operations:"
+	echo "  enable   Enable the service at boot"
+	echo "  start    Start the service"
+	echo "  stop     Stop the service"
+	echo "  status   Show service status"
+	echo "  logs     Follow service logs"
+
+$(CONF_DEST):
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make config)"; exit 1; }
+
+	read -rp "Data directory for persistent volumes [$(BASE_DIR)]: " DATA_DIR
+	DATA_DIR=$${DATA_DIR:-$(BASE_DIR)}
+
+	read -rp "System username for monitoring services: " SYSTEM_USER
+	if ! id -u "$$SYSTEM_USER" &>/dev/null; then
+		read -rp "User '$$SYSTEM_USER' does not exist — create it? [y/N]: " yn
+		[[ "$$yn" =~ ^[Yy] ]] || { echo "Aborted."; exit 1; }
+		useradd -s /sbin/nologin "$$SYSTEM_USER"
+	fi
+	SYSTEM_UID=$$(id -u "$$SYSTEM_USER")
+	SYSTEM_GID=$$(id -g "$$SYSTEM_USER")
+
+	read -rp "DNS servers, comma-separated [1.1.1.1]: " DNS_SERVERS
+	DNS_SERVERS=$${DNS_SERVERS:-1.1.1.1}
+
+	read -rsp "Grafana admin password [admin]: " GRAFANA_PASSWORD; echo
+	read -rsp "Retype password: " GRAFANA_PASSWORD_CONFIRM; echo
+	[[ "$$GRAFANA_PASSWORD" == "$$GRAFANA_PASSWORD_CONFIRM" ]] || { echo "Error: passwords do not match"; exit 1; }
+	GRAFANA_PASSWORD=$${GRAFANA_PASSWORD:-admin}
+
+	read -rp "Prometheus host port [9090]: " PROMETHEUS_PORT
+	PROMETHEUS_PORT=$${PROMETHEUS_PORT:-9090}
+	read -rp "Grafana host port [3000]: " GRAFANA_PORT
+	GRAFANA_PORT=$${GRAFANA_PORT:-3000}
+	read -rp "Blackbox Exporter host port [9115]: " BLACKBOX_EXPORTER_PORT
+	BLACKBOX_EXPORTER_PORT=$${BLACKBOX_EXPORTER_PORT:-9115}
+	read -rp "Uptime Kuma host port [3001]: " UPTIME_KUMA_PORT
+	UPTIME_KUMA_PORT=$${UPTIME_KUMA_PORT:-3001}
+
+	mkdir -p "$(PREFIX)/etc/monitoring"
+	{
+		echo "PUID=$$SYSTEM_UID"
+		echo "PGID=$$SYSTEM_GID"
+		echo "BASE_DIR=$(BASE_DIR)"
+		echo "DATA_DIR=$$DATA_DIR"
+		echo "DNS_SERVERS=$$DNS_SERVERS"
+		echo "GRAFANA_PASSWORD=$$GRAFANA_PASSWORD"
+		echo "PROMETHEUS_PORT=$$PROMETHEUS_PORT"
+		echo "GRAFANA_PORT=$$GRAFANA_PORT"
+		echo "BLACKBOX_EXPORTER_PORT=$$BLACKBOX_EXPORTER_PORT"
+		echo "UPTIME_KUMA_PORT=$$UPTIME_KUMA_PORT"
+	} > "$(CONF_DEST)"
+	chmod 600 "$(CONF_DEST)"
+	chown "$$SYSTEM_UID:$$SYSTEM_GID" "$(CONF_DEST)"
+	echo "Config written: $(CONF_DEST)"
+
+	mkdir -p "$(BASE_DIR)/prometheus/etc/prometheus"
+	mkdir -p "$$DATA_DIR/prometheus/prometheus"
+	mkdir -p "$$DATA_DIR/grafana/var/lib/grafana"
+	mkdir -p "$(BASE_DIR)/grafana/etc/grafana"
+	mkdir -p "$(BASE_DIR)/uptimekuma/data"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/prometheus/etc"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/prometheus/prometheus"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/grafana/etc"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/grafana/var"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/uptimekuma/data"
+	echo "Directories created and ownership set"
+
+config: $(CONF_DEST)
+
+$(NFTABLES_DEST): $(NFTABLES_SRC)
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make firewall)"; exit 1; }
+	DETECTED=$$(ip route | awk '/^default/ {print $$5; exit}')
+	read -rp "Network interface [$${DETECTED:-none detected}]: " IFACE
+	IFACE=$${IFACE:-$$DETECTED}
+	[[ -n "$$IFACE" ]] || { echo "Error: no network interface specified"; exit 1; }
+	export IFACE
+	envsubst '$$IFACE' < "$(BASE_DIR)/$(NFTABLES_SRC)" > "$(NFTABLES_DEST)"
+	nft -f "$(NFTABLES_DEST)"
+	systemctl enable nftables
+	systemctl restart nftables
+	echo "Firewall rules applied: $(NFTABLES_DEST)"
+
+firewall: $(NFTABLES_DEST)
+
+$(SERVICE_DEST): $(CONF_DEST) $(SERVICE_SRC)
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make service)"; exit 1; }
+
+	mkdir -p "$(PREFIX)/etc/systemd/system"
+	set -a; source "$(CONF_DEST)"; set +a
+	export CONF_DEST="$(CONF_DEST)"
+	envsubst < "$(BASE_DIR)/$(SERVICE_SRC)" > "$(SERVICE_DEST)"
+	chown "$$PUID:$$PGID" "$(SERVICE_DEST)"
+	systemctl daemon-reload
+	echo "Unit installed: $(SERVICE_DEST)"
+	echo "Next: sudo make enable && sudo make start"
+
+service: $(SERVICE_DEST)
+
+install: $(SERVICE_DEST)
+
+uninstall:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall)"; exit 1; }
+	systemctl disable --now monitoring.service 2>/dev/null || true
+	rm -f "$(SERVICE_DEST)"
+	systemctl daemon-reload
+	rm -f "$(CONF_DEST)"
+	rmdir --ignore-fail-on-non-empty "$(PREFIX)/etc/monitoring" 2>/dev/null || true
+	echo "Uninstalled"
+
+enable:
+	@systemctl enable monitoring.service
+
+start:
+	@systemctl start monitoring.service
+
+stop:
+	@systemctl stop monitoring.service
+
+status:
+	@systemctl status monitoring.service
+
+logs:
+	@journalctl -u monitoring.service -f

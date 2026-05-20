@@ -38,7 +38,7 @@ Run `install.sh` as root to set up:
 
 ## Configuration Files
 
-- **Prometheus config**: `.prometheus/etc/prometheus/prometheus.yml`
+- **Prometheus config**: `prometheus/etc/prometheus/prometheus.yml`
   - Scrapes targets: homeassistant.home:8123, cloud.home:9292, ai.home:9100
   - Additional AI targets: port 5000 and 8082
   - Configured scrape intervals: 60s (general targets), 30s (AI targets)
@@ -46,8 +46,8 @@ Run `install.sh` as root to set up:
 ## Volume Mappings
 
 All services bind mount `${BASE_DIR}` directory (configurable via .env):
-- `.prometheus/etc/prometheus/` => container `/etc/prometheus`
-- `.prometheus/prometheus/` => container `/prometheus`
-- `.grafana/var/lib/grafana/` => container `/var/lib/grafana`
-- `.grafana/etc/grafana/` => container `/etc/grafana`
-- `.uptimekuma/data/` => container `/app/data`
+- `prometheus/etc/prometheus/` => container `/etc/prometheus`
+- `prometheus/prometheus/` => container `/prometheus`
+- `grafana/var/lib/grafana/` => container `/var/lib/grafana`
+- `grafana/etc/grafana/` => container `/etc/grafana`
+- `uptimekuma/data/` => container `/app/data`
