@@ -78,16 +78,20 @@ $(CONF_DEST):
 	chown "$$SYSTEM_UID:$$SYSTEM_GID" "$(CONF_DEST)"
 	echo "Config written: $(CONF_DEST)"
 
-	mkdir -p "$(BASE_DIR)/prometheus/etc/prometheus"
+	mkdir -p "$(BASE_DIR)/prometheus/etc/prometheus/rules"
 	mkdir -p "$$DATA_DIR/prometheus/prometheus"
 	mkdir -p "$$DATA_DIR/grafana/var/lib/grafana"
 	mkdir -p "$(BASE_DIR)/grafana/etc/grafana"
 	mkdir -p "$(BASE_DIR)/uptimekuma/data"
+	mkdir -p "$(BASE_DIR)/alertmanager/config"
+	mkdir -p "$$DATA_DIR/alertmanager"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/prometheus/etc"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/prometheus/prometheus"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/grafana/etc"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/grafana/var"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/uptimekuma/data"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/alertmanager/config"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/alertmanager"
 	echo "Directories created and ownership set"
 
 config: $(CONF_DEST)

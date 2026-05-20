@@ -43,6 +43,8 @@ services:
     command:
       - '--config.file=/config/blackbox.yml'
     user: "${PUID}:${PGID}"
+    cap_add:
+      - NET_RAW #required to do ICMP probing
     ports:
       - ${BLACKBOX_EXPORTER_PORT:-9115}:9115
     volumes:
@@ -51,6 +53,24 @@ services:
         target: /config
     restart: unless-stopped
 
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: alertmanager
+    user: "${PUID}:${PGID}"
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    ports:
+      - ${ALERTMANAGER_PORT:-9093}:9093
+    volumes:
+      - type: bind
+        source: ${BASE_DIR}/alertmanager/config
+        target: /etc/alertmanager
+      - type: bind
+        source: ${DATA_DIR}/alertmanager
+        target: /alertmanager
+    restart: unless-stopped
 
   uptime-kuma:
     image: louislam/uptime-kuma:2.1.3
