@@ -38,11 +38,12 @@ scrape_configs:
     metrics_path: /metrics
 
   - job_name: blackbox-probes
+    scrape_interval: 30s
     metrics_path: /probe
     static_configs:
       - targets:
         - http://homeassistant.home:8123
-        - http://darwish.cloud.home
+        - http://darwish.cloud.home/health
         labels:
           module: http_2xx
       - targets:
