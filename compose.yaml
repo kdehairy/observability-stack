@@ -16,7 +16,7 @@ services:
         source: ${BASE_DIR}/prometheus/etc/prometheus
         target: /etc/prometheus
       - type: bind
-        source: ${DATA_DIR}/prometheus/prometheus
+        source: ${DATA_DIR}/prometheus
         target: /prometheus
     restart: unless-stopped
 
