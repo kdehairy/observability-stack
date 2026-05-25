@@ -58,8 +58,6 @@ $(CONF_DEST):
 	GRAFANA_PORT=$${GRAFANA_PORT:-3000}
 	read -rp "Blackbox Exporter host port [9115]: " BLACKBOX_EXPORTER_PORT
 	BLACKBOX_EXPORTER_PORT=$${BLACKBOX_EXPORTER_PORT:-9115}
-	read -rp "Uptime Kuma host port [3001]: " UPTIME_KUMA_PORT
-	UPTIME_KUMA_PORT=$${UPTIME_KUMA_PORT:-3001}
 
 	mkdir -p "$(PREFIX)/etc/monitoring"
 	{
@@ -72,7 +70,6 @@ $(CONF_DEST):
 		echo "PROMETHEUS_PORT=$$PROMETHEUS_PORT"
 		echo "GRAFANA_PORT=$$GRAFANA_PORT"
 		echo "BLACKBOX_EXPORTER_PORT=$$BLACKBOX_EXPORTER_PORT"
-		echo "UPTIME_KUMA_PORT=$$UPTIME_KUMA_PORT"
 	} > "$(CONF_DEST)"
 	chmod 600 "$(CONF_DEST)"
 	chown "$$SYSTEM_UID:$$SYSTEM_GID" "$(CONF_DEST)"
@@ -82,14 +79,12 @@ $(CONF_DEST):
 	mkdir -p "$$DATA_DIR/prometheus"
 	mkdir -p "$$DATA_DIR/grafana/var/lib/grafana"
 	mkdir -p "$(BASE_DIR)/grafana/etc/grafana"
-	mkdir -p "$(BASE_DIR)/uptimekuma/data"
 	mkdir -p "$(BASE_DIR)/alertmanager/config"
 	mkdir -p "$$DATA_DIR/alertmanager"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/prometheus/etc"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/prometheus"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/grafana/etc"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/grafana/var"
-	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/uptimekuma/data"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/alertmanager/config"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/alertmanager"
 	echo "Directories created and ownership set"

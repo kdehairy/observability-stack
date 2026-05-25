@@ -72,32 +72,6 @@ services:
         target: /alertmanager
     restart: unless-stopped
 
-  uptime-kuma:
-    image: louislam/uptime-kuma:2.1.3
-    container_name: uptime-kuma
-    ports:
-      - ${UPTIME_KUMA_PORT:-3001}:3001
-    volumes:
-      - type: bind
-        source: ${BASE_DIR}/uptimekuma/data
-        target: /app/data
-    environment:
-      - TZ=UTC  # Set the timezone (change to your preferred local timezone so monitoring times are the same)
-      - UMASK=0022  # Set your file permissions manually
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001"]
-      interval: 30s
-      retries: 3
-      start_period: 10s
-      timeout: 5s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    dns:
-      - ${DNS_SERVERS}
-
 networks:
   default:
     name: monitoring_network
