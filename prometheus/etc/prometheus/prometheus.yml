@@ -55,7 +55,9 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: __param_target
       - source_labels: [__param_target]
+        regex: '^(?:https?://)?([a-zA-Z][a-zA-Z0-9-]*)\..*|^(.+)$'
         target_label: instance
+        replacement: '$1$2'
       - source_labels: [module]
         target_label: __param_module
       - target_label: __address__
