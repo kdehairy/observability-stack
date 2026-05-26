@@ -8,8 +8,23 @@ route:
   group_interval: 5m
   repeat_interval: 4h
 
+  routes:
+    # Grafana-originated alerts get their own grouping
+    - matchers:
+        - grafana_folder != ""
+      receiver: ntfy
+      group_by: ['alertname', 'grafana_folder']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+
 receivers:
   - name: ntfy
     webhook_configs:
       - url: 'https://ntfy.sh/kdehairy_uptime_alert?template=alertmanager'
+        send_resolved: true
+
+  - name: ntfy-grafana
+    webhook_configs:
+      - url: 'https://ntfy.sh/kdehairy_home_monitors?template=alertmanager'
         send_resolved: true
