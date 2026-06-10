@@ -33,21 +33,18 @@ scrape_configs:
 
   - job_name: 'ai-llama'
     scrape_interval: 30s
-    static_configs:
-      - targets:
-        - model.cloud.home?model=Baloza-v0.3
-        - model.cloud.home?model=ninni-v0.1
     metrics_path: /metrics
+    static_configs:
+      - targets: ['model.cloud.home']
+        labels:
+          model: Baloza-v0.3
+      - targets: ['model.cloud.home']
+        labels:
+          model: ninni-v0.1
     relabel_configs:
-      # Strip query parameters, keep only hostname
-      - source_labels: [__address__]
-        regex: '([^?]+)'
-        target_label: __param_target
-        replacement: '$1'
-      # Extract model parameter as a label
-      - source_labels: [__address__]
-        regex: '.*model=([^&]+).*'
-        target_label: model
+      # Pass the model name as a query parameter on the scrape request
+      - source_labels: [model]
+        target_label: __param_model
 
   - job_name: blackbox-probes
     scrape_interval: 30s
