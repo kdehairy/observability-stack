@@ -31,20 +31,20 @@ scrape_configs:
     static_configs:
       - targets: ['ai.home:5000']
 
-  - job_name: 'ai-llama'
-    scrape_interval: 30s
-    metrics_path: /metrics
-    static_configs:
-      - targets: ['model.cloud.home']
-        labels:
-          model: Baloza-v0.3
-      #- targets: ['model.cloud.home']
-      #  labels:
-      #    model: ninni-v0.1
-    relabel_configs:
-      # Pass the model name as a query parameter on the scrape request
-      - source_labels: [model]
-        target_label: __param_model
+  #- job_name: 'ai-llama'
+  #  scrape_interval: 30s
+  #  metrics_path: /metrics
+  #  static_configs:
+  #    - targets: ['model.cloud.home']
+  #      labels:
+  #        model: Baloza-v0.3
+  #    #- targets: ['model.cloud.home']
+  #    #  labels:
+  #    #    model: ninni-v0.1
+  #  relabel_configs:
+  #    # Pass the model name as a query parameter on the scrape request
+  #    - source_labels: [model]
+  #      target_label: __param_model
 
   - job_name: blackbox-probes
     scrape_interval: 30s
