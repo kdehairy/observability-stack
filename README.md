@@ -64,6 +64,7 @@ Run `sudo make install` as root to set up the monitoring stack:
 - Uptime Kuma config: `nginx/sites-available/uptime-kuma.conf`
 - WebSocket support enabled with proper headers
 - Must symlink configs to `/etc/nginx/sites-enabled/` on host for nginx to load them
+- Sites with `listen 443 ssl` (`homeassistant.conf`, `openwebui.conf`) share SSL/HTTP2 settings via `nginx/snippets/ssl-params.conf`, which must also be symlinked to `/etc/nginx/snippets/ssl-params.conf` on the host
 
 ## Volume Mappings
 
