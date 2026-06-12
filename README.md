@@ -5,7 +5,6 @@
 Docker Compose-based monitoring stack for home monitoring with 5 services:
 - **Prometheus** (port 9090): metrics collection from multiple targets (homeassistant, cloud, AI services)
 - **Grafana** (port 3000): admin password configurable (default: heroHERO)
-- **Uptime Kuma** (port 3001): uptime monitoring with UTC timezone
 - **Blackbox Exporter** (port 9115): HTTP and ICMP probes
 - **Alertmanager** (port 9093): alert routing and notifications
 
@@ -60,10 +59,7 @@ Run `sudo make install` as root to set up the monitoring stack:
 - ICMP probes for: 192.168.50.1
 
 ### Nginx Reverse Proxy (on host, not in Docker)
-**Important**: Uptime Kuma is exposed via Nginx at `http://uptime.cloud.home` (port 80), not directly via Docker port 3001.
-- Uptime Kuma config: `nginx/sites-available/uptime-kuma.conf`
-- WebSocket support enabled with proper headers
-- Must symlink configs to `/etc/nginx/sites-enabled/` on host for nginx to load them
+All Nginx site configs must be symlinked to `/etc/nginx/sites-enabled/` on the host for nginx to load them
 - Sites with `listen 443 ssl` (`homeassistant.conf`, `openwebui.conf`) share SSL/HTTP2 settings via `nginx/snippets/ssl-params.conf`, which must also be symlinked to `/etc/nginx/snippets/ssl-params.conf` on the host
 
 ## Volume Mappings
@@ -76,7 +72,6 @@ All services bind mount `${BASE_DIR}` directory:
 - `blackbox-exporter/config/` → container `/config`
 - `alertmanager/config/` → container `/etc/alertmanager`
 - `alertmanager/` (data dir) → container `/alertmanager`
-- `uptimekuma/data/` → container `/app/data`
 
 ## Network Configuration
 
@@ -86,7 +81,6 @@ Services resolve via `.local` and `.cloud.home` FQDNs on the `monitoring_network
 - `ai.home:9100` (Node exporter)
 - `ai.home:5000` (AMD GPU exporter)
 - `ai.home:8082` (llama.cpp)
-- `uptime.cloud.home` (Uptime Kuma via Nginx)
 - `grafana.cloud.home` (via Nginx)
 - `prometheus.cloud.home` (via Nginx)
 - `192.168.50.0/24` LAN for ICMP probes (Blackbox Exporter)
