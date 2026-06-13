@@ -58,6 +58,8 @@ $(CONF_DEST):
 	GRAFANA_PORT=$${GRAFANA_PORT:-3000}
 	read -rp "Blackbox Exporter host port [9115]: " BLACKBOX_EXPORTER_PORT
 	BLACKBOX_EXPORTER_PORT=$${BLACKBOX_EXPORTER_PORT:-9115}
+	read -rp "Loki host port [3100]: " LOKI_PORT
+	LOKI_PORT=$${LOKI_PORT:-3100}
 
 	mkdir -p "$(PREFIX)/etc/monitoring"
 	{
@@ -70,6 +72,7 @@ $(CONF_DEST):
 		echo "PROMETHEUS_PORT=$$PROMETHEUS_PORT"
 		echo "GRAFANA_PORT=$$GRAFANA_PORT"
 		echo "BLACKBOX_EXPORTER_PORT=$$BLACKBOX_EXPORTER_PORT"
+		echo "LOKI_PORT=$$LOKI_PORT"
 	} > "$(CONF_DEST)"
 	chmod 600 "$(CONF_DEST)"
 	chown "$$SYSTEM_UID:$$SYSTEM_GID" "$(CONF_DEST)"
@@ -79,14 +82,19 @@ $(CONF_DEST):
 	mkdir -p "$$DATA_DIR/prometheus"
 	mkdir -p "$$DATA_DIR/grafana/var/lib/grafana"
 	mkdir -p "$(BASE_DIR)/grafana/etc/grafana"
+	mkdir -p "$(BASE_DIR)/grafana/etc/grafana/provisioning/datasources"
 	mkdir -p "$(BASE_DIR)/alertmanager/config"
 	mkdir -p "$$DATA_DIR/alertmanager"
+	mkdir -p "$$DATA_DIR/loki/chunks"
+	mkdir -p "$$DATA_DIR/loki/rules"
+	mkdir -p "$(BASE_DIR)/loki/etc/loki"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/prometheus/etc"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/prometheus"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/grafana/etc"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/grafana/var"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/alertmanager/config"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/alertmanager"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/loki"
 	echo "Directories created and ownership set"
 
 config: $(CONF_DEST)

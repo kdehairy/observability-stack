@@ -55,22 +55,43 @@ services:
 
 
   alertmanager:
-    image: prom/alertmanager
-    container_name: alertmanager
+     image: prom/alertmanager
+     container_name: alertmanager
+     user: "${PUID}:${PGID}"
+     command:
+       - '--config.file=/etc/alertmanager/alertmanager.yml'
+       - '--storage.path=/alertmanager'
+     ports:
+       - ${ALERTMANAGER_PORT:-9093}:9093
+     volumes:
+       - type: bind
+         source: ${BASE_DIR}/alertmanager/config
+         target: /etc/alertmanager
+       - type: bind
+         source: ${DATA_DIR}/alertmanager
+         target: /alertmanager
+     restart: unless-stopped
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
     user: "${PUID}:${PGID}"
     command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
+      - '-config.file=/etc/loki/loki-config.yaml'
     ports:
-      - ${ALERTMANAGER_PORT:-9093}:9093
+      - ${LOKI_PORT:-3100}:3100
     volumes:
       - type: bind
-        source: ${BASE_DIR}/alertmanager/config
-        target: /etc/alertmanager
+        source: ${BASE_DIR}/loki/etc/loki
+        target: /etc/loki
       - type: bind
-        source: ${DATA_DIR}/alertmanager
-        target: /alertmanager
+        source: ${DATA_DIR}/loki/chunks
+        target: /etc/loki/chunks
+      - type: bind
+        source: ${DATA_DIR}/loki/rules
+        target: /etc/loki/rules
     restart: unless-stopped
+
 
 networks:
   default:
