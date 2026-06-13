@@ -17,10 +17,15 @@ pipeline:
       port: 5140
       mode: udp
 
+  filters:
+    - name: modify
+      match: '*'
+      copy: ident service_name
+
   outputs:
     - name: loki
       match: '*'
       host: loki
       port: 3100
       labels: job=fluentbit
-      label_keys: $host,$ident,$pid
+      label_keys: $host,$ident,$pid,$service_name
