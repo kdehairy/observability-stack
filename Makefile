@@ -60,20 +60,24 @@ $(CONF_DEST):
 	BLACKBOX_EXPORTER_PORT=$${BLACKBOX_EXPORTER_PORT:-9115}
 	read -rp "Loki host port [3100]: " LOKI_PORT
 	LOKI_PORT=$${LOKI_PORT:-3100}
+	read -rp "Fluent-bit host port [514]: " FLUENT_BIT_PORT
+	FLUENT_BIT_PORT=$${FLUENT_BIT_PORT:-514}
+	echo "FLUENT_BIT_DATA=$$DATA_DIR"
 
 	mkdir -p "$(PREFIX)/etc/monitoring"
 	{
-		echo "PUID=$$SYSTEM_UID"
-		echo "PGID=$$SYSTEM_GID"
-		echo "BASE_DIR=$(BASE_DIR)"
-		echo "DATA_DIR=$$DATA_DIR"
-		echo "DNS_SERVERS=$$DNS_SERVERS"
-		echo "GRAFANA_PASSWORD=$$GRAFANA_PASSWORD"
-		echo "PROMETHEUS_PORT=$$PROMETHEUS_PORT"
-		echo "GRAFANA_PORT=$$GRAFANA_PORT"
-		echo "BLACKBOX_EXPORTER_PORT=$$BLACKBOX_EXPORTER_PORT"
-		echo "LOKI_PORT=$$LOKI_PORT"
-	} > "$(CONF_DEST)"
+			echo "PUID=$$SYSTEM_UID"
+			echo "PGID=$$SYSTEM_GID"
+			echo "BASE_DIR=$(BASE_DIR)"
+			echo "DATA_DIR=$$DATA_DIR"
+			echo "DNS_SERVERS=$$DNS_SERVERS"
+			echo "GRAFANA_PASSWORD=$$GRAFANA_PASSWORD"
+			echo "PROMETHEUS_PORT=$$PROMETHEUS_PORT"
+			echo "GRAFANA_PORT=$$GRAFANA_PORT"
+			echo "BLACKBOX_EXPORTER_PORT=$$BLACKBOX_EXPORTER_PORT"
+			echo "LOKI_PORT=$$LOKI_PORT"
+			echo "FLUENT_BIT_PORT=$$FLUENT_BIT_PORT"
+		} > "$(CONF_DEST)"
 	chmod 600 "$(CONF_DEST)"
 	chown "$$SYSTEM_UID:$$SYSTEM_GID" "$(CONF_DEST)"
 	echo "Config written: $(CONF_DEST)"
@@ -87,7 +91,8 @@ $(CONF_DEST):
 	mkdir -p "$$DATA_DIR/alertmanager"
 	mkdir -p "$$DATA_DIR/loki/chunks"
 	mkdir -p "$$DATA_DIR/loki/rules"
-	mkdir -p "$(BASE_DIR)/loki/etc/loki"
+	mkdir -p "$$DATA_DIR/fluent-bit"
+	mkdir -p "$(BASE_DIR)/fluent-bit/etc/fluent-bit"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/prometheus/etc"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/prometheus"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/grafana/etc"
@@ -95,6 +100,8 @@ $(CONF_DEST):
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/alertmanager/config"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/alertmanager"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/loki"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$$DATA_DIR/fluent-bit"
+	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/fluent-bit/etc"
 	echo "Directories created and ownership set"
 
 config: $(CONF_DEST)

@@ -55,22 +55,40 @@ services:
 
 
   alertmanager:
-     image: prom/alertmanager
-     container_name: alertmanager
-     user: "${PUID}:${PGID}"
-     command:
-       - '--config.file=/etc/alertmanager/alertmanager.yml'
-       - '--storage.path=/alertmanager'
-     ports:
-       - ${ALERTMANAGER_PORT:-9093}:9093
-     volumes:
-       - type: bind
-         source: ${BASE_DIR}/alertmanager/config
-         target: /etc/alertmanager
-       - type: bind
-         source: ${DATA_DIR}/alertmanager
-         target: /alertmanager
-     restart: unless-stopped
+    image: prom/alertmanager
+    container_name: alertmanager
+    user: "${PUID}:${PGID}"
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    ports:
+      - ${ALERTMANAGER_PORT:-9093}:9093
+    volumes:
+      - type: bind
+        source: ${BASE_DIR}/alertmanager/config
+        target: /etc/alertmanager
+      - type: bind
+        source: ${DATA_DIR}/alertmanager
+        target: /alertmanager
+    restart: unless-stopped
+
+  fluent-bit:
+    image: cr.fluentbit.io/fluent/fluent-bit:2.0
+    container_name: fluent-bit
+    user: "${PUID}:${PGID}"
+    command:
+      - '-c'
+      - '/etc/fluent-bit/fluent-bit.yaml'
+    ports:
+      - ${FLUENT_BIT_PORT:-514}:5140
+    volumes:
+      - type: bind
+        source: ${BASE_DIR}/fluent-bit/etc/fluent-bit
+        target: /etc/fluent-bit
+      - type: bind
+        source: ${DATA_DIR}/fluent-bit
+        target: /var/log/fluent-bit
+    restart: unless-stopped
 
   loki:
     image: grafana/loki:latest
