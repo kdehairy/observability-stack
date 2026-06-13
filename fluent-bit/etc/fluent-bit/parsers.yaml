@@ -1,0 +1,15 @@
+parsers:
+  - name: syslog-rfc5424
+    format: regex
+    regex: '^\<(?<pri>[0-9]{1,5})\>1 (?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>[-0-9]+) (?<msgid>[^ ]+) (?<extradata>(\[(.*?)\]|-)) (?<message>.+)$'
+    time_key: time
+    time_format: '%Y-%m-%dT%H:%M:%S.%L%z'
+    time_keep: true
+
+  - name: syslog-rfc3164-local
+    format: regex
+    regex: '/^\<(?<pri>[0-9]+)\>(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/'
+    time_key: time
+    time_format: '%b %d %H:%M:%S'
+    time_keep: true
+    time_system_timezone: true

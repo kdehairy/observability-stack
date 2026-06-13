@@ -73,9 +73,11 @@ services:
     restart: unless-stopped
 
   fluent-bit:
-    image: cr.fluentbit.io/fluent/fluent-bit:2.0
+    image: cr.fluentbit.io/fluent/fluent-bit:5.0
     container_name: fluent-bit
     user: "${PUID}:${PGID}"
+    environment:
+      - TZ=Europe/Amsterdam
     command:
       - '-c'
       - '/etc/fluent-bit/fluent-bit.yaml'
