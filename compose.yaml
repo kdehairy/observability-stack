@@ -81,6 +81,7 @@ services:
       - '/etc/fluent-bit/fluent-bit.yaml'
     ports:
       - ${FLUENT_BIT_PORT:-514}:5140
+      - ${FLUENT_BIT_PORT:-514}:5140/udp
     volumes:
       - type: bind
         source: ${BASE_DIR}/fluent-bit/etc/fluent-bit
