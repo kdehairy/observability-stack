@@ -12,7 +12,7 @@ NFTABLES_DEST           := $(PREFIX)/etc/nftables.conf
 BASE_DIR                := $(shell pwd)
 NETWORK_NAME            := monitoring_network
 
-.PHONY: help config service install uninstall firewall network
+.PHONY: help config service install install-prometheus uninstall uninstall-prometheus firewall network
 
 help:
 	@echo "Usage: sudo make <target>"
@@ -22,7 +22,9 @@ help:
 	echo "  network  Create the external monitoring_network Docker network"
 	echo "  service  Render and install the monitoring.service and prometheus.service unit files from $(CONF_DEST)"
 	echo "  install    Run network then service"
+	echo "  install-prometheus  Run network then install just the prometheus.service unit"
 	echo "  uninstall  Disable and remove the systemd units, config file, and network"
+	echo "  uninstall-prometheus  Disable and remove just the prometheus.service unit"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
 	echo "Use systemctl/journalctl directly to manage monitoring.service and prometheus.service."
@@ -157,6 +159,8 @@ service: $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST)
 
 install: network $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST)
 
+install-prometheus: network $(PROMETHEUS_SERVICE_DEST)
+
 uninstall:
 	@set -euo pipefail
 	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall)"; exit 1; }
@@ -168,3 +172,11 @@ uninstall:
 	rmdir --ignore-fail-on-non-empty "$(PREFIX)/etc/monitoring" 2>/dev/null || true
 	docker network rm $(NETWORK_NAME) 2>/dev/null || true
 	echo "Uninstalled"
+
+uninstall-prometheus:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall-prometheus)"; exit 1; }
+	systemctl disable --now prometheus.service 2>/dev/null || true
+	rm -f "$(PROMETHEUS_SERVICE_DEST)"
+	systemctl daemon-reload
+	echo "Uninstalled prometheus.service"
