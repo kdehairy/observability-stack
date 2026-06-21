@@ -15,8 +15,9 @@ NFTABLES_SRC            := nftables.conf
 NFTABLES_DEST           := $(PREFIX)/etc/nftables.conf
 BASE_DIR                := $(shell pwd)
 NETWORK_NAME            := monitoring_network
+ALL_SERVICES            := monitoring.service prometheus.service grafana.service fluent-bit.service
 
-.PHONY: help config service install install-prometheus install-grafana install-fluent-bit uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit firewall network
+.PHONY: help config service install install-prometheus install-grafana install-fluent-bit uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit firewall network start-all stop-all
 
 help:
 	@echo "Usage: sudo make <target>"
@@ -35,7 +36,11 @@ help:
 	echo "  uninstall-fluent-bit  Disable and remove just the fluent-bit.service unit"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
-	echo "Use systemctl/journalctl directly to manage monitoring.service, prometheus.service, grafana.service, and fluent-bit.service."
+	echo "Operations:"
+	echo "  start-all  Start monitoring.service, prometheus.service, grafana.service, and fluent-bit.service"
+	echo "  stop-all   Stop monitoring.service, prometheus.service, grafana.service, and fluent-bit.service"
+	echo ""
+	echo "Use systemctl/journalctl directly to manage individual units."
 
 $(CONF_DEST):
 	@set -euo pipefail
@@ -236,3 +241,15 @@ uninstall-fluent-bit:
 	rm -f "$(FLUENT_BIT_SERVICE_DEST)"
 	systemctl daemon-reload
 	echo "Uninstalled fluent-bit.service"
+
+start-all:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make start-all)"; exit 1; }
+	systemctl start $(ALL_SERVICES)
+	echo "Started: $(ALL_SERVICES)"
+
+stop-all:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make stop-all)"; exit 1; }
+	systemctl stop $(ALL_SERVICES)
+	echo "Stopped: $(ALL_SERVICES)"
