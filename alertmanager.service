@@ -1,0 +1,27 @@
+[Unit]
+Description=Alertmanager (standalone container)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=${CONF_DEST}
+WorkingDirectory=${BASE_DIR}
+ExecStartPre=-/usr/bin/docker rm -f alertmanager
+ExecStart=/usr/bin/docker run --rm --name alertmanager \
+  --network monitoring_network \
+  -u ${PUID}:${PGID} \
+  -p ${ALERTMANAGER_PORT}:9093 \
+  -v ${BASE_DIR}/alertmanager/config:/etc/alertmanager \
+  -v ${DATA_DIR}/alertmanager:/alertmanager \
+  prom/alertmanager \
+  --config.file=/etc/alertmanager/alertmanager.yml \
+  --storage.path=/alertmanager
+ExecStop=/usr/bin/docker stop alertmanager
+Restart=always
+RestartSec=10s
+User=${PUID}
+Group=${PGID}
+
+[Install]
+WantedBy=multi-user.target

@@ -2,13 +2,13 @@
 
 ## Overview
 
-Docker Compose-based monitoring stack for home monitoring with 2 services, plus standalone Prometheus, Grafana, Fluent Bit, and Loki containers managed outside of Compose:
-- **Prometheus** (port 9090): metrics collection from multiple targets (homeassistant, cloud, AI services). Runs as its own systemd unit (`prometheus.service`), not part of `compose.yaml`
-- **Grafana** (port 3000): admin password configurable (default: heroHERO). Runs as its own systemd unit (`grafana.service`), not part of `compose.yaml`
-- **Blackbox Exporter** (port 9115): HTTP and ICMP probes
-- **Alertmanager** (port 9093): alert routing and notifications
-- **Fluent Bit** (host port 514, internal 5140): receives syslog and forwards to Loki. Runs as its own systemd unit (`fluent-bit.service`), not part of `compose.yaml`
-- **Loki** (port 3100): log aggregation and storage. Runs as its own systemd unit (`loki.service`), not part of `compose.yaml`
+Home monitoring stack. Every service runs as a standalone Docker container managed by its own systemd unit — there is no Docker Compose involved:
+- **Prometheus** (port 9090): metrics collection from multiple targets (homeassistant, cloud, AI services). `prometheus.service`
+- **Grafana** (port 3000): admin password configurable (default: heroHERO). `grafana.service`
+- **Blackbox Exporter** (port 9115): HTTP and ICMP probes. `blackbox-exporter.service`
+- **Alertmanager** (port 9093): alert routing and notifications. `alertmanager.service`
+- **Fluent Bit** (host port 514, internal 5140): receives syslog and forwards to Loki. `fluent-bit.service`
+- **Loki** (port 3100): log aggregation and storage. `loki.service`
 
 ## Parameterized Configuration
 
@@ -18,7 +18,7 @@ All critical parameters are configured via Makefile prompts:
 - **DATA_DIR**: Directory for persistent volumes (asked during installation)
 - **DNS_SERVERS**: DNS server address (default: `1.1.1.1`)
 - **GRAFANA_PASSWORD**: Grafana admin password (default: heroHERO, confirmed with double-entry)
-- **Service ports**: Prometheus (9090), Grafana (3000), Blackbox Exporter (9115), Alertmanager (9093)
+- **Service ports**: Prometheus (9090), Grafana (3000), Blackbox Exporter (9115), Alertmanager (9093), Loki (3100), Fluent Bit (514)
 
 **Important**: Configuration is written to `/etc/monitoring/monitoring.conf` (created by `make config`) with permissions 600 — readable only by the system user to protect sensitive information.
 
@@ -27,8 +27,8 @@ All critical parameters are configured via Makefile prompts:
 Run `sudo make install` as root to set up the monitoring stack:
 1. Prompts for: system username, DATA_DIR, DNS_SERVERS, GRAFANA_PASSWORD (with confirmation), and all service ports
 2. Creates `/etc/monitoring/monitoring.conf` with permissions 600 and ownership ${SYSTEM_UID}:${SYSTEM_GID}
-3. Creates the external `monitoring_network` Docker network (shared by the Compose stack and the standalone Prometheus/Grafana/Fluent Bit/Loki containers)
-4. Creates `monitoring.service`, `prometheus.service`, `grafana.service`, `fluent-bit.service`, and `loki.service` systemd units
+3. Creates the external `monitoring_network` Docker network shared by all six standalone containers
+4. Creates `prometheus.service`, `grafana.service`, `fluent-bit.service`, `loki.service`, `alertmanager.service`, and `blackbox-exporter.service` systemd units
 5. Creates Prometheus rules directory, Grafana configs, Alertmanager configs, and data directories with correct ownership
 6. Does **not** enable or start any service automatically
 
@@ -38,8 +38,8 @@ Run `sudo make install` as root to set up the monitoring stack:
 - Creates required directories with proper permissions
 
 **Next steps after installation:**
-- Start everything: `sudo make start-all` (or `sudo systemctl enable --now monitoring.service prometheus.service grafana.service fluent-bit.service loki.service` for boot-persistent enablement)
-- View logs: `docker compose logs -f` (from BASE_DIR) for the Compose stack, `journalctl -u prometheus.service -f` / `journalctl -u grafana.service -f` / `journalctl -u fluent-bit.service -f` / `journalctl -u loki.service -f` for the standalone containers
+- Start everything: `sudo make start-all` (or `sudo systemctl enable --now <unit>...` per unit for boot-persistent enablement)
+- View logs: `sudo journalctl -u <unit>.service -f` per container
 
 ## Configuration Files
 
@@ -66,25 +66,25 @@ All Nginx site configs must be symlinked to `/etc/nginx/sites-enabled/` on the h
 
 ## Volume Mappings
 
-All services bind mount `${BASE_DIR}` directory:
-- `prometheus/etc/prometheus/` → container `/etc/prometheus` (standalone container, started via `prometheus.service`, not Compose)
+All services bind mount `${BASE_DIR}`/`${DATA_DIR}` directories directly into their `docker run` invocation (no Compose volumes):
+- `prometheus/etc/prometheus/` → container `/etc/prometheus`
 - `prometheus/prometheus/` → container `/prometheus` (TSDB)
-- `grafana/var/lib/grafana/` → container `/var/lib/grafana` (standalone container, started via `grafana.service`, not Compose)
+- `grafana/var/lib/grafana/` → container `/var/lib/grafana`
 - `grafana/etc/grafana/` → container `/etc/grafana`
 - `blackbox-exporter/config/` → container `/config`
 - `alertmanager/config/` → container `/etc/alertmanager`
 - `alertmanager/` (data dir) → container `/alertmanager`
-- `fluent-bit/etc/fluent-bit/` → container `/etc/fluent-bit` (standalone container, started via `fluent-bit.service`, not Compose)
+- `fluent-bit/etc/fluent-bit/` → container `/etc/fluent-bit`
 - `fluent-bit/` (data dir) → container `/var/log/fluent-bit`
-- `loki/etc/loki/` → container `/etc/loki` (standalone container, started via `loki.service`, not Compose)
+- `loki/etc/loki/` → container `/etc/loki`
 - `loki/chunks` (data dir) → container `/etc/loki/chunks`
 - `loki/rules` (data dir) → container `/etc/loki/rules`
 
 ## Network Configuration
 
-`monitoring_network` is an externally-managed Docker network (created by `sudo make network`/`install`, not owned by Compose) so the standalone Prometheus/Grafana/Fluent Bit/Loki containers and the Compose-managed services can resolve each other by container name (Prometheus and Loki need to reach `alertmanager`; Prometheus also reaches `blackbox-exporter`; Grafana and Fluent Bit need to reach `loki`).
+`monitoring_network` is an externally-managed Docker network (created by `sudo make network`/`install`), shared by all six standalone containers so they can resolve each other by container name: Prometheus and Loki reach `alertmanager`; Prometheus reaches `blackbox-exporter`; Grafana and Fluent Bit reach `loki`.
 
-Services resolve via `.local` and `.cloud.home` FQDNs on the `monitoring_network` Docker network:
+Services also resolve via `.local` and `.cloud.home` FQDNs on the host's DNS:
 - `homeassistant.home:8123` (Prometheus, Home Assistant)
 - `cloud.home:9292` (Telegraf)
 - `ai.home:9100` (Node exporter)
@@ -106,26 +106,14 @@ Host firewall managed by `nftables.conf`:
 ## Quick Commands
 
 ```bash
-# From BASE_DIR (same directory as compose.yaml, monitoring.service, Makefile)
-docker compose --env-file /etc/monitoring/monitoring.conf up --detach   # Start services
-docker compose logs -f                                                    # View logs
-docker compose down                                                      # Stop services
-
-# Via systemd (preferred for auto-start)
-sudo systemctl enable monitoring.service    # Enable at boot (after first install)
-sudo systemctl start monitoring.service    # Start now
-sudo systemctl status monitoring.service   # Check status
-sudo journalctl -u monitoring.service -f  # Follow logs
-
-# Prometheus, Grafana, Fluent Bit, and Loki run standalone, outside the Compose stack
-sudo systemctl enable prometheus.service grafana.service fluent-bit.service loki.service
-sudo systemctl start prometheus.service grafana.service fluent-bit.service loki.service
-sudo systemctl status prometheus.service
-sudo journalctl -u prometheus.service -f
-
-# Or use the Makefile wrappers to start/stop everything at once
+# Start/stop everything at once
 sudo make start-all
 sudo make stop-all
+
+# Per-unit systemd control
+sudo systemctl enable --now prometheus.service
+sudo systemctl status prometheus.service
+sudo journalctl -u prometheus.service -f
 ```
 
 ## Service Management
@@ -133,7 +121,8 @@ sudo make stop-all
 Control via systemd unit files or Makefile:
 - **Config**: `sudo make config` - creates `/etc/monitoring/monitoring.conf` (600 permissions)
 - **Network**: `sudo make network` - creates the external `monitoring_network` Docker network
-- **Service file**: `sudo make service` - renders and installs `monitoring.service`, `prometheus.service`, `grafana.service`, `fluent-bit.service`, and `loki.service`
+- **Service file**: `sudo make service` - renders and installs all six systemd units
 - **Firewall**: `sudo nft -f nftables.conf` - applies firewall rules (requires network interface input)
 - **Start/stop everything**: `sudo make start-all` / `sudo make stop-all`
-- Operations: use `systemctl`/`journalctl` directly on individual units (no per-unit Makefile wrappers)
+- **Per-service install/uninstall**: `make install-<name>` / `make uninstall-<name>` for `prometheus`, `grafana`, `fluent-bit`, `loki`, `alertmanager`, `blackbox-exporter`
+- Operations: use `systemctl`/`journalctl` directly on individual units

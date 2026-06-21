@@ -1,0 +1,26 @@
+[Unit]
+Description=Blackbox Exporter (standalone container)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=${CONF_DEST}
+WorkingDirectory=${BASE_DIR}
+ExecStartPre=-/usr/bin/docker rm -f blackbox-exporter
+ExecStart=/usr/bin/docker run --rm --name blackbox-exporter \
+  --network monitoring_network \
+  -u ${PUID}:${PGID} \
+  --cap-add NET_RAW \
+  -p ${BLACKBOX_EXPORTER_PORT}:9115 \
+  -v ${BASE_DIR}/blackbox-exporter/config:/config \
+  quay.io/prometheus/blackbox-exporter:latest \
+  --config.file=/config/blackbox.yml
+ExecStop=/usr/bin/docker stop blackbox-exporter
+Restart=always
+RestartSec=10s
+User=${PUID}
+Group=${PGID}
+
+[Install]
+WantedBy=multi-user.target
