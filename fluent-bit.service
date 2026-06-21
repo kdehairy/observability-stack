@@ -1,0 +1,27 @@
+[Unit]
+Description=Fluent Bit log forwarder (standalone container)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=${CONF_DEST}
+WorkingDirectory=${BASE_DIR}
+ExecStartPre=-/usr/bin/docker rm -f fluent-bit
+ExecStart=/usr/bin/docker run --rm --name fluent-bit \
+  --network monitoring_network \
+  -u ${PUID}:${PGID} \
+  -e TZ=Europe/Amsterdam \
+  -p ${FLUENT_BIT_PORT}:5140 \
+  -v ${BASE_DIR}/fluent-bit/etc/fluent-bit:/etc/fluent-bit \
+  -v ${DATA_DIR}/fluent-bit:/var/log/fluent-bit \
+  cr.fluentbit.io/fluent/fluent-bit:5.0 \
+  -c /etc/fluent-bit/fluent-bit.yaml
+ExecStop=/usr/bin/docker stop fluent-bit
+Restart=always
+RestartSec=10s
+User=${PUID}
+Group=${PGID}
+
+[Install]
+WantedBy=multi-user.target

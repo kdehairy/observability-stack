@@ -9,12 +9,14 @@ PROMETHEUS_SERVICE_SRC  := prometheus.service
 PROMETHEUS_SERVICE_DEST := $(PREFIX)/etc/systemd/system/prometheus.service
 GRAFANA_SERVICE_SRC     := grafana.service
 GRAFANA_SERVICE_DEST    := $(PREFIX)/etc/systemd/system/grafana.service
+FLUENT_BIT_SERVICE_SRC  := fluent-bit.service
+FLUENT_BIT_SERVICE_DEST := $(PREFIX)/etc/systemd/system/fluent-bit.service
 NFTABLES_SRC            := nftables.conf
 NFTABLES_DEST           := $(PREFIX)/etc/nftables.conf
 BASE_DIR                := $(shell pwd)
 NETWORK_NAME            := monitoring_network
 
-.PHONY: help config service install install-prometheus install-grafana uninstall uninstall-prometheus uninstall-grafana firewall network
+.PHONY: help config service install install-prometheus install-grafana install-fluent-bit uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit firewall network
 
 help:
 	@echo "Usage: sudo make <target>"
@@ -22,16 +24,18 @@ help:
 	echo "Setup:"
 	echo "  config   Prompt for parameters, write $(CONF_DEST), create data dirs"
 	echo "  network  Create the external monitoring_network Docker network"
-	echo "  service  Render and install the monitoring.service, prometheus.service, and grafana.service unit files from $(CONF_DEST)"
+	echo "  service  Render and install the monitoring.service, prometheus.service, grafana.service, and fluent-bit.service unit files from $(CONF_DEST)"
 	echo "  install    Run network then service"
 	echo "  install-prometheus  Run network then install just the prometheus.service unit"
 	echo "  install-grafana  Run network then install just the grafana.service unit"
+	echo "  install-fluent-bit  Run network then install just the fluent-bit.service unit"
 	echo "  uninstall  Disable and remove the systemd units, config file, and network"
 	echo "  uninstall-prometheus  Disable and remove just the prometheus.service unit"
 	echo "  uninstall-grafana  Disable and remove just the grafana.service unit"
+	echo "  uninstall-fluent-bit  Disable and remove just the fluent-bit.service unit"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
-	echo "Use systemctl/journalctl directly to manage monitoring.service, prometheus.service, and grafana.service."
+	echo "Use systemctl/journalctl directly to manage monitoring.service, prometheus.service, grafana.service, and fluent-bit.service."
 
 $(CONF_DEST):
 	@set -euo pipefail
@@ -172,13 +176,28 @@ $(GRAFANA_SERVICE_DEST): $(CONF_DEST) $(GRAFANA_SERVICE_SRC)
 	echo "Unit installed: $(GRAFANA_SERVICE_DEST)"
 	echo "Next: sudo systemctl enable --now grafana.service"
 
-service: $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST) $(GRAFANA_SERVICE_DEST)
+$(FLUENT_BIT_SERVICE_DEST): $(CONF_DEST) $(FLUENT_BIT_SERVICE_SRC)
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make service)"; exit 1; }
 
-install: network $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST) $(GRAFANA_SERVICE_DEST)
+	mkdir -p "$(PREFIX)/etc/systemd/system"
+	set -a; source "$(CONF_DEST)"; set +a
+	export CONF_DEST="$(CONF_DEST)"
+	envsubst < "$(BASE_DIR)/$(FLUENT_BIT_SERVICE_SRC)" > "$(FLUENT_BIT_SERVICE_DEST)"
+	chown "$$PUID:$$PGID" "$(FLUENT_BIT_SERVICE_DEST)"
+	systemctl daemon-reload
+	echo "Unit installed: $(FLUENT_BIT_SERVICE_DEST)"
+	echo "Next: sudo systemctl enable --now fluent-bit.service"
+
+service: $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST) $(GRAFANA_SERVICE_DEST) $(FLUENT_BIT_SERVICE_DEST)
+
+install: network $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST) $(GRAFANA_SERVICE_DEST) $(FLUENT_BIT_SERVICE_DEST)
 
 install-prometheus: network $(PROMETHEUS_SERVICE_DEST)
 
 install-grafana: network $(GRAFANA_SERVICE_DEST)
+
+install-fluent-bit: network $(FLUENT_BIT_SERVICE_DEST)
 
 uninstall:
 	@set -euo pipefail
@@ -186,7 +205,8 @@ uninstall:
 	systemctl disable --now monitoring.service 2>/dev/null || true
 	systemctl disable --now prometheus.service 2>/dev/null || true
 	systemctl disable --now grafana.service 2>/dev/null || true
-	rm -f "$(SERVICE_DEST)" "$(PROMETHEUS_SERVICE_DEST)" "$(GRAFANA_SERVICE_DEST)"
+	systemctl disable --now fluent-bit.service 2>/dev/null || true
+	rm -f "$(SERVICE_DEST)" "$(PROMETHEUS_SERVICE_DEST)" "$(GRAFANA_SERVICE_DEST)" "$(FLUENT_BIT_SERVICE_DEST)"
 	systemctl daemon-reload
 	rm -f "$(CONF_DEST)"
 	rmdir --ignore-fail-on-non-empty "$(PREFIX)/etc/monitoring" 2>/dev/null || true
@@ -208,3 +228,11 @@ uninstall-grafana:
 	rm -f "$(GRAFANA_SERVICE_DEST)"
 	systemctl daemon-reload
 	echo "Uninstalled grafana.service"
+
+uninstall-fluent-bit:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall-fluent-bit)"; exit 1; }
+	systemctl disable --now fluent-bit.service 2>/dev/null || true
+	rm -f "$(FLUENT_BIT_SERVICE_DEST)"
+	systemctl daemon-reload
+	echo "Uninstalled fluent-bit.service"

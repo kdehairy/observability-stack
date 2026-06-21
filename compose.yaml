@@ -34,26 +34,6 @@ services:
         target: /alertmanager
     restart: unless-stopped
 
-  fluent-bit:
-    image: cr.fluentbit.io/fluent/fluent-bit:5.0
-    container_name: fluent-bit
-    user: "${PUID}:${PGID}"
-    environment:
-      - TZ=Europe/Amsterdam
-    command:
-      - '-c'
-      - '/etc/fluent-bit/fluent-bit.yaml'
-    ports:
-      - ${FLUENT_BIT_PORT:-514}:5140
-    volumes:
-      - type: bind
-        source: ${BASE_DIR}/fluent-bit/etc/fluent-bit
-        target: /etc/fluent-bit
-      - type: bind
-        source: ${DATA_DIR}/fluent-bit
-        target: /var/log/fluent-bit
-    restart: unless-stopped
-
   loki:
     image: grafana/loki:latest
     container_name: loki
