@@ -1,25 +1,4 @@
 services:
-  prometheus:
-    image: prom/prometheus
-    container_name: prometheus
-    user: "${PUID}:${PGID}"
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      #- --storage.tsdb.retention.time 2y
-      - '--storage.tsdb.retention.size=256GB'
-      - '--web.enable-admin-api'
-    ports:
-      - ${PROMETHEUS_PORT:-9090}:9090
-    volumes:
-      - type: bind
-        source: ${BASE_DIR}/prometheus/etc/prometheus
-        target: /etc/prometheus
-      - type: bind
-        source: ${DATA_DIR}/prometheus
-        target: /prometheus
-    restart: unless-stopped
-
   grafana:
     image: grafana/grafana
     container_name: grafana
@@ -116,3 +95,4 @@ services:
 networks:
   default:
     name: monitoring_network
+    external: true

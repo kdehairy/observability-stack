@@ -2,8 +2,8 @@
 
 ## Overview
 
-Docker Compose-based monitoring stack for home monitoring with 5 services:
-- **Prometheus** (port 9090): metrics collection from multiple targets (homeassistant, cloud, AI services)
+Docker Compose-based monitoring stack for home monitoring with 5 services, plus a standalone Prometheus container managed outside of Compose:
+- **Prometheus** (port 9090): metrics collection from multiple targets (homeassistant, cloud, AI services). Runs as its own systemd unit (`prometheus.service`), not part of `compose.yaml`
 - **Grafana** (port 3000): admin password configurable (default: heroHERO)
 - **Blackbox Exporter** (port 9115): HTTP and ICMP probes
 - **Alertmanager** (port 9093): alert routing and notifications
@@ -25,9 +25,10 @@ All critical parameters are configured via Makefile prompts:
 Run `sudo make install` as root to set up the monitoring stack:
 1. Prompts for: system username, DATA_DIR, DNS_SERVERS, GRAFANA_PASSWORD (with confirmation), and all service ports
 2. Creates `/etc/monitoring/monitoring.conf` with permissions 600 and ownership ${SYSTEM_UID}:${SYSTEM_GID}
-3. Creates `monitoring.service` systemd unit
-4. Creates Prometheus rules directory, Grafana configs, Alertmanager configs, and data directories with correct ownership
-5. Does **not** enable or start the service automatically
+3. Creates the external `monitoring_network` Docker network (shared by the Compose stack and the standalone Prometheus container)
+4. Creates `monitoring.service` and `prometheus.service` systemd units
+5. Creates Prometheus rules directory, Grafana configs, Alertmanager configs, and data directories with correct ownership
+6. Does **not** enable or start either service automatically
 
 **Prerequisites:**
 - Run as root (`sudo make install`)
@@ -35,9 +36,9 @@ Run `sudo make install` as root to set up the monitoring stack:
 - Creates required directories with proper permissions
 
 **Next steps after installation:**
-- Enable systemd service: `sudo systemctl enable monitoring.service`
-- Start systemd service: `sudo systemctl start monitoring.service`
-- View logs: `docker compose logs -f` (from BASE_DIR)
+- Enable systemd services: `sudo systemctl enable monitoring.service prometheus.service`
+- Start systemd services: `sudo systemctl start monitoring.service prometheus.service`
+- View logs: `docker compose logs -f` (from BASE_DIR) for the Compose stack, `journalctl -u prometheus.service -f` for Prometheus
 
 ## Configuration Files
 
@@ -65,7 +66,7 @@ All Nginx site configs must be symlinked to `/etc/nginx/sites-enabled/` on the h
 ## Volume Mappings
 
 All services bind mount `${BASE_DIR}` directory:
-- `prometheus/etc/prometheus/` → container `/etc/prometheus`
+- `prometheus/etc/prometheus/` → container `/etc/prometheus` (standalone container, started via `prometheus.service`, not Compose)
 - `prometheus/prometheus/` → container `/prometheus` (TSDB)
 - `grafana/var/lib/grafana/` → container `/var/lib/grafana`
 - `grafana/etc/grafana/` → container `/etc/grafana`
@@ -74,6 +75,8 @@ All services bind mount `${BASE_DIR}` directory:
 - `alertmanager/` (data dir) → container `/alertmanager`
 
 ## Network Configuration
+
+`monitoring_network` is an externally-managed Docker network (created by `sudo make network`/`install`, not owned by Compose) so the standalone Prometheus container and the Compose-managed services can resolve each other by container name (Prometheus needs to reach `alertmanager` and `blackbox-exporter`).
 
 Services resolve via `.local` and `.cloud.home` FQDNs on the `monitoring_network` Docker network:
 - `homeassistant.home:8123` (Prometheus, Home Assistant)
@@ -107,11 +110,19 @@ sudo systemctl enable monitoring.service    # Enable at boot (after first instal
 sudo systemctl start monitoring.service    # Start now
 sudo systemctl status monitoring.service   # Check status
 sudo journalctl -u monitoring.service -f  # Follow logs
+
+# Prometheus runs standalone, outside the Compose stack
+sudo systemctl enable prometheus.service
+sudo systemctl start prometheus.service
+sudo systemctl status prometheus.service
+sudo journalctl -u prometheus.service -f
 ```
 
 ## Service Management
 
-Control via systemd unit file or Makefile:
+Control via systemd unit files or Makefile:
 - **Config**: `sudo make config` - creates `/etc/monitoring/monitoring.conf` (600 permissions)
-- **Service file**: `sudo make service` - renders and installs systemd unit
+- **Network**: `sudo make network` - creates the external `monitoring_network` Docker network
+- **Service file**: `sudo make service` - renders and installs both `monitoring.service` and `prometheus.service`
 - **Firewall**: `sudo nft -f nftables.conf` - applies firewall rules (requires network interface input)
+- Prometheus-specific ops targets: `make enable-prometheus`, `start-prometheus`, `stop-prometheus`, `status-prometheus`, `logs-prometheus`

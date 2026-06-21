@@ -1,32 +1,43 @@
 SHELL        := /bin/bash
 .ONESHELL:
 
-PREFIX          ?=
-CONF_DEST       := $(PREFIX)/etc/monitoring/monitoring.conf
-SERVICE_SRC     := monitoring.service
-SERVICE_DEST    := $(PREFIX)/etc/systemd/system/monitoring.service
-NFTABLES_SRC    := nftables.conf
-NFTABLES_DEST   := $(PREFIX)/etc/nftables.conf
-BASE_DIR        := $(shell pwd)
+PREFIX                  ?=
+CONF_DEST               := $(PREFIX)/etc/monitoring/monitoring.conf
+SERVICE_SRC             := monitoring.service
+SERVICE_DEST            := $(PREFIX)/etc/systemd/system/monitoring.service
+PROMETHEUS_SERVICE_SRC  := prometheus.service
+PROMETHEUS_SERVICE_DEST := $(PREFIX)/etc/systemd/system/prometheus.service
+NFTABLES_SRC            := nftables.conf
+NFTABLES_DEST           := $(PREFIX)/etc/nftables.conf
+BASE_DIR                := $(shell pwd)
+NETWORK_NAME            := monitoring_network
 
-.PHONY: help config service install uninstall firewall enable start stop status logs
+.PHONY: help config service install uninstall firewall network enable start stop status logs enable-prometheus start-prometheus stop-prometheus status-prometheus logs-prometheus
 
 help:
 	@echo "Usage: sudo make <target>"
 	echo ""
 	echo "Setup:"
 	echo "  config   Prompt for parameters, write $(CONF_DEST), create data dirs"
-	echo "  service  Render and install the systemd unit file from $(CONF_DEST)"
-	echo "  install    Run config then service"
-	echo "  uninstall  Disable and remove the systemd unit and config file"
+	echo "  network  Create the external monitoring_network Docker network"
+	echo "  service  Render and install the monitoring.service and prometheus.service unit files from $(CONF_DEST)"
+	echo "  install    Run network then service"
+	echo "  uninstall  Disable and remove the systemd units, config file, and network"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
-	echo "Operations:"
-	echo "  enable   Enable the service at boot"
-	echo "  start    Start the service"
-	echo "  stop     Stop the service"
-	echo "  status   Show service status"
-	echo "  logs     Follow service logs"
+	echo "Operations (compose stack):"
+	echo "  enable   Enable monitoring.service at boot"
+	echo "  start    Start monitoring.service"
+	echo "  stop     Stop monitoring.service"
+	echo "  status   Show monitoring.service status"
+	echo "  logs     Follow monitoring.service logs"
+	echo ""
+	echo "Operations (standalone Prometheus):"
+	echo "  enable-prometheus   Enable prometheus.service at boot"
+	echo "  start-prometheus    Start prometheus.service"
+	echo "  stop-prometheus     Stop prometheus.service"
+	echo "  status-prometheus   Show prometheus.service status"
+	echo "  logs-prometheus     Follow prometheus.service logs"
 
 $(CONF_DEST):
 	@set -euo pipefail
@@ -122,6 +133,12 @@ $(NFTABLES_DEST): $(NFTABLES_SRC)
 
 firewall: $(NFTABLES_DEST)
 
+network:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make network)"; exit 1; }
+	docker network inspect $(NETWORK_NAME) >/dev/null 2>&1 || docker network create $(NETWORK_NAME)
+	echo "Docker network '$(NETWORK_NAME)' ready"
+
 $(SERVICE_DEST): $(CONF_DEST) $(SERVICE_SRC)
 	@set -euo pipefail
 	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make service)"; exit 1; }
@@ -135,18 +152,33 @@ $(SERVICE_DEST): $(CONF_DEST) $(SERVICE_SRC)
 	echo "Unit installed: $(SERVICE_DEST)"
 	echo "Next: sudo make enable && sudo make start"
 
-service: $(SERVICE_DEST)
+$(PROMETHEUS_SERVICE_DEST): $(CONF_DEST) $(PROMETHEUS_SERVICE_SRC)
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make service)"; exit 1; }
 
-install: $(SERVICE_DEST)
+	mkdir -p "$(PREFIX)/etc/systemd/system"
+	set -a; source "$(CONF_DEST)"; set +a
+	export CONF_DEST="$(CONF_DEST)"
+	envsubst < "$(BASE_DIR)/$(PROMETHEUS_SERVICE_SRC)" > "$(PROMETHEUS_SERVICE_DEST)"
+	chown "$$PUID:$$PGID" "$(PROMETHEUS_SERVICE_DEST)"
+	systemctl daemon-reload
+	echo "Unit installed: $(PROMETHEUS_SERVICE_DEST)"
+	echo "Next: sudo make enable-prometheus && sudo make start-prometheus"
+
+service: $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST)
+
+install: network $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST)
 
 uninstall:
 	@set -euo pipefail
 	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall)"; exit 1; }
 	systemctl disable --now monitoring.service 2>/dev/null || true
-	rm -f "$(SERVICE_DEST)"
+	systemctl disable --now prometheus.service 2>/dev/null || true
+	rm -f "$(SERVICE_DEST)" "$(PROMETHEUS_SERVICE_DEST)"
 	systemctl daemon-reload
 	rm -f "$(CONF_DEST)"
 	rmdir --ignore-fail-on-non-empty "$(PREFIX)/etc/monitoring" 2>/dev/null || true
+	docker network rm $(NETWORK_NAME) 2>/dev/null || true
 	echo "Uninstalled"
 
 enable:
@@ -163,3 +195,18 @@ status:
 
 logs:
 	@journalctl -u monitoring.service -f
+
+enable-prometheus:
+	@systemctl enable prometheus.service
+
+start-prometheus:
+	@systemctl start prometheus.service
+
+stop-prometheus:
+	@systemctl stop prometheus.service
+
+status-prometheus:
+	@systemctl status prometheus.service
+
+logs-prometheus:
+	@journalctl -u prometheus.service -f

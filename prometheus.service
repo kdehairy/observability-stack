@@ -1,0 +1,29 @@
+[Unit]
+Description=Prometheus metrics server (standalone container)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=${CONF_DEST}
+WorkingDirectory=${BASE_DIR}
+ExecStartPre=-/usr/bin/docker rm -f prometheus
+ExecStart=/usr/bin/docker run --rm --name prometheus \
+  --network monitoring_network \
+  -u ${PUID}:${PGID} \
+  -p ${PROMETHEUS_PORT}:9090 \
+  -v ${BASE_DIR}/prometheus/etc/prometheus:/etc/prometheus \
+  -v ${DATA_DIR}/prometheus:/prometheus \
+  prom/prometheus \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/prometheus \
+  --storage.tsdb.retention.size=256GB \
+  --web.enable-admin-api
+ExecStop=/usr/bin/docker stop prometheus
+Restart=always
+RestartSec=10s
+User=${PUID}
+Group=${PGID}
+
+[Install]
+WantedBy=multi-user.target
