@@ -2,9 +2,9 @@
 
 ## Overview
 
-Docker Compose-based monitoring stack for home monitoring with 5 services, plus a standalone Prometheus container managed outside of Compose:
+Docker Compose-based monitoring stack for home monitoring with 4 services, plus standalone Prometheus and Grafana containers managed outside of Compose:
 - **Prometheus** (port 9090): metrics collection from multiple targets (homeassistant, cloud, AI services). Runs as its own systemd unit (`prometheus.service`), not part of `compose.yaml`
-- **Grafana** (port 3000): admin password configurable (default: heroHERO)
+- **Grafana** (port 3000): admin password configurable (default: heroHERO). Runs as its own systemd unit (`grafana.service`), not part of `compose.yaml`
 - **Blackbox Exporter** (port 9115): HTTP and ICMP probes
 - **Alertmanager** (port 9093): alert routing and notifications
 
@@ -25,10 +25,10 @@ All critical parameters are configured via Makefile prompts:
 Run `sudo make install` as root to set up the monitoring stack:
 1. Prompts for: system username, DATA_DIR, DNS_SERVERS, GRAFANA_PASSWORD (with confirmation), and all service ports
 2. Creates `/etc/monitoring/monitoring.conf` with permissions 600 and ownership ${SYSTEM_UID}:${SYSTEM_GID}
-3. Creates the external `monitoring_network` Docker network (shared by the Compose stack and the standalone Prometheus container)
-4. Creates `monitoring.service` and `prometheus.service` systemd units
+3. Creates the external `monitoring_network` Docker network (shared by the Compose stack and the standalone Prometheus/Grafana containers)
+4. Creates `monitoring.service`, `prometheus.service`, and `grafana.service` systemd units
 5. Creates Prometheus rules directory, Grafana configs, Alertmanager configs, and data directories with correct ownership
-6. Does **not** enable or start either service automatically
+6. Does **not** enable or start any service automatically
 
 **Prerequisites:**
 - Run as root (`sudo make install`)
@@ -36,9 +36,9 @@ Run `sudo make install` as root to set up the monitoring stack:
 - Creates required directories with proper permissions
 
 **Next steps after installation:**
-- Enable systemd services: `sudo systemctl enable monitoring.service prometheus.service`
-- Start systemd services: `sudo systemctl start monitoring.service prometheus.service`
-- View logs: `docker compose logs -f` (from BASE_DIR) for the Compose stack, `journalctl -u prometheus.service -f` for Prometheus
+- Enable systemd services: `sudo systemctl enable monitoring.service prometheus.service grafana.service`
+- Start systemd services: `sudo systemctl start monitoring.service prometheus.service grafana.service`
+- View logs: `docker compose logs -f` (from BASE_DIR) for the Compose stack, `journalctl -u prometheus.service -f` / `journalctl -u grafana.service -f` for the standalone containers
 
 ## Configuration Files
 
@@ -68,7 +68,7 @@ All Nginx site configs must be symlinked to `/etc/nginx/sites-enabled/` on the h
 All services bind mount `${BASE_DIR}` directory:
 - `prometheus/etc/prometheus/` → container `/etc/prometheus` (standalone container, started via `prometheus.service`, not Compose)
 - `prometheus/prometheus/` → container `/prometheus` (TSDB)
-- `grafana/var/lib/grafana/` → container `/var/lib/grafana`
+- `grafana/var/lib/grafana/` → container `/var/lib/grafana` (standalone container, started via `grafana.service`, not Compose)
 - `grafana/etc/grafana/` → container `/etc/grafana`
 - `blackbox-exporter/config/` → container `/config`
 - `alertmanager/config/` → container `/etc/alertmanager`
@@ -76,7 +76,7 @@ All services bind mount `${BASE_DIR}` directory:
 
 ## Network Configuration
 
-`monitoring_network` is an externally-managed Docker network (created by `sudo make network`/`install`, not owned by Compose) so the standalone Prometheus container and the Compose-managed services can resolve each other by container name (Prometheus needs to reach `alertmanager` and `blackbox-exporter`).
+`monitoring_network` is an externally-managed Docker network (created by `sudo make network`/`install`, not owned by Compose) so the standalone Prometheus and Grafana containers and the Compose-managed services can resolve each other by container name (Prometheus needs to reach `alertmanager` and `blackbox-exporter`; Grafana needs to reach `loki`).
 
 Services resolve via `.local` and `.cloud.home` FQDNs on the `monitoring_network` Docker network:
 - `homeassistant.home:8123` (Prometheus, Home Assistant)
@@ -111,9 +111,9 @@ sudo systemctl start monitoring.service    # Start now
 sudo systemctl status monitoring.service   # Check status
 sudo journalctl -u monitoring.service -f  # Follow logs
 
-# Prometheus runs standalone, outside the Compose stack
-sudo systemctl enable prometheus.service
-sudo systemctl start prometheus.service
+# Prometheus and Grafana run standalone, outside the Compose stack
+sudo systemctl enable prometheus.service grafana.service
+sudo systemctl start prometheus.service grafana.service
 sudo systemctl status prometheus.service
 sudo journalctl -u prometheus.service -f
 ```
@@ -123,6 +123,6 @@ sudo journalctl -u prometheus.service -f
 Control via systemd unit files or Makefile:
 - **Config**: `sudo make config` - creates `/etc/monitoring/monitoring.conf` (600 permissions)
 - **Network**: `sudo make network` - creates the external `monitoring_network` Docker network
-- **Service file**: `sudo make service` - renders and installs both `monitoring.service` and `prometheus.service`
+- **Service file**: `sudo make service` - renders and installs `monitoring.service`, `prometheus.service`, and `grafana.service`
 - **Firewall**: `sudo nft -f nftables.conf` - applies firewall rules (requires network interface input)
-- Operations: use `systemctl`/`journalctl` directly on `monitoring.service` and `prometheus.service` (no Makefile wrappers)
+- Operations: use `systemctl`/`journalctl` directly on `monitoring.service`, `prometheus.service`, and `grafana.service` (no Makefile wrappers)

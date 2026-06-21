@@ -1,21 +1,4 @@
 services:
-  grafana:
-    image: grafana/grafana
-    container_name: grafana
-    user: "${PUID}:${PGID}"
-    ports:
-      - ${GRAFANA_PORT:-3000}:3000
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
-    volumes:
-      - type: bind
-        source: ${DATA_DIR}/grafana/var/lib/grafana
-        target: /var/lib/grafana
-      - type: bind
-        source: ${BASE_DIR}/grafana/etc/grafana
-        target: /etc/grafana
-    restart: unless-stopped
-
   blackbox-exporter:
     image: quay.io/prometheus/blackbox-exporter:latest
     container_name: blackbox-exporter
