@@ -11,13 +11,15 @@ GRAFANA_SERVICE_SRC     := grafana.service
 GRAFANA_SERVICE_DEST    := $(PREFIX)/etc/systemd/system/grafana.service
 FLUENT_BIT_SERVICE_SRC  := fluent-bit.service
 FLUENT_BIT_SERVICE_DEST := $(PREFIX)/etc/systemd/system/fluent-bit.service
+LOKI_SERVICE_SRC        := loki.service
+LOKI_SERVICE_DEST       := $(PREFIX)/etc/systemd/system/loki.service
 NFTABLES_SRC            := nftables.conf
 NFTABLES_DEST           := $(PREFIX)/etc/nftables.conf
 BASE_DIR                := $(shell pwd)
 NETWORK_NAME            := monitoring_network
-ALL_SERVICES            := monitoring.service prometheus.service grafana.service fluent-bit.service
+ALL_SERVICES            := monitoring.service prometheus.service grafana.service fluent-bit.service loki.service
 
-.PHONY: help config service install install-prometheus install-grafana install-fluent-bit uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit firewall network start-all stop-all
+.PHONY: help config service install install-prometheus install-grafana install-fluent-bit install-loki uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki firewall network start-all stop-all
 
 help:
 	@echo "Usage: sudo make <target>"
@@ -25,20 +27,22 @@ help:
 	echo "Setup:"
 	echo "  config   Prompt for parameters, write $(CONF_DEST), create data dirs"
 	echo "  network  Create the external monitoring_network Docker network"
-	echo "  service  Render and install the monitoring.service, prometheus.service, grafana.service, and fluent-bit.service unit files from $(CONF_DEST)"
+	echo "  service  Render and install the monitoring.service, prometheus.service, grafana.service, fluent-bit.service, and loki.service unit files from $(CONF_DEST)"
 	echo "  install    Run network then service"
 	echo "  install-prometheus  Run network then install just the prometheus.service unit"
 	echo "  install-grafana  Run network then install just the grafana.service unit"
 	echo "  install-fluent-bit  Run network then install just the fluent-bit.service unit"
+	echo "  install-loki  Run network then install just the loki.service unit"
 	echo "  uninstall  Disable and remove the systemd units, config file, and network"
 	echo "  uninstall-prometheus  Disable and remove just the prometheus.service unit"
 	echo "  uninstall-grafana  Disable and remove just the grafana.service unit"
 	echo "  uninstall-fluent-bit  Disable and remove just the fluent-bit.service unit"
+	echo "  uninstall-loki  Disable and remove just the loki.service unit"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
 	echo "Operations:"
-	echo "  start-all  Start monitoring.service, prometheus.service, grafana.service, and fluent-bit.service"
-	echo "  stop-all   Stop monitoring.service, prometheus.service, grafana.service, and fluent-bit.service"
+	echo "  start-all  Start monitoring.service, prometheus.service, grafana.service, fluent-bit.service, and loki.service"
+	echo "  stop-all   Stop monitoring.service, prometheus.service, grafana.service, fluent-bit.service, and loki.service"
 	echo ""
 	echo "Use systemctl/journalctl directly to manage individual units."
 
@@ -194,15 +198,30 @@ $(FLUENT_BIT_SERVICE_DEST): $(CONF_DEST) $(FLUENT_BIT_SERVICE_SRC)
 	echo "Unit installed: $(FLUENT_BIT_SERVICE_DEST)"
 	echo "Next: sudo systemctl enable --now fluent-bit.service"
 
-service: $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST) $(GRAFANA_SERVICE_DEST) $(FLUENT_BIT_SERVICE_DEST)
+$(LOKI_SERVICE_DEST): $(CONF_DEST) $(LOKI_SERVICE_SRC)
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make service)"; exit 1; }
 
-install: network $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST) $(GRAFANA_SERVICE_DEST) $(FLUENT_BIT_SERVICE_DEST)
+	mkdir -p "$(PREFIX)/etc/systemd/system"
+	set -a; source "$(CONF_DEST)"; set +a
+	export CONF_DEST="$(CONF_DEST)"
+	envsubst < "$(BASE_DIR)/$(LOKI_SERVICE_SRC)" > "$(LOKI_SERVICE_DEST)"
+	chown "$$PUID:$$PGID" "$(LOKI_SERVICE_DEST)"
+	systemctl daemon-reload
+	echo "Unit installed: $(LOKI_SERVICE_DEST)"
+	echo "Next: sudo systemctl enable --now loki.service"
+
+service: $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST) $(GRAFANA_SERVICE_DEST) $(FLUENT_BIT_SERVICE_DEST) $(LOKI_SERVICE_DEST)
+
+install: network $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST) $(GRAFANA_SERVICE_DEST) $(FLUENT_BIT_SERVICE_DEST) $(LOKI_SERVICE_DEST)
 
 install-prometheus: network $(PROMETHEUS_SERVICE_DEST)
 
 install-grafana: network $(GRAFANA_SERVICE_DEST)
 
 install-fluent-bit: network $(FLUENT_BIT_SERVICE_DEST)
+
+install-loki: network $(LOKI_SERVICE_DEST)
 
 uninstall:
 	@set -euo pipefail
@@ -211,7 +230,8 @@ uninstall:
 	systemctl disable --now prometheus.service 2>/dev/null || true
 	systemctl disable --now grafana.service 2>/dev/null || true
 	systemctl disable --now fluent-bit.service 2>/dev/null || true
-	rm -f "$(SERVICE_DEST)" "$(PROMETHEUS_SERVICE_DEST)" "$(GRAFANA_SERVICE_DEST)" "$(FLUENT_BIT_SERVICE_DEST)"
+	systemctl disable --now loki.service 2>/dev/null || true
+	rm -f "$(SERVICE_DEST)" "$(PROMETHEUS_SERVICE_DEST)" "$(GRAFANA_SERVICE_DEST)" "$(FLUENT_BIT_SERVICE_DEST)" "$(LOKI_SERVICE_DEST)"
 	systemctl daemon-reload
 	rm -f "$(CONF_DEST)"
 	rmdir --ignore-fail-on-non-empty "$(PREFIX)/etc/monitoring" 2>/dev/null || true
@@ -241,6 +261,14 @@ uninstall-fluent-bit:
 	rm -f "$(FLUENT_BIT_SERVICE_DEST)"
 	systemctl daemon-reload
 	echo "Uninstalled fluent-bit.service"
+
+uninstall-loki:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall-loki)"; exit 1; }
+	systemctl disable --now loki.service 2>/dev/null || true
+	rm -f "$(LOKI_SERVICE_DEST)"
+	systemctl daemon-reload
+	echo "Uninstalled loki.service"
 
 start-all:
 	@set -euo pipefail

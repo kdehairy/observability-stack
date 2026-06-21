@@ -34,27 +34,6 @@ services:
         target: /alertmanager
     restart: unless-stopped
 
-  loki:
-    image: grafana/loki:latest
-    container_name: loki
-    user: "${PUID}:${PGID}"
-    command:
-      - '-config.file=/etc/loki/loki-config.yaml'
-    ports:
-      - ${LOKI_PORT:-3100}:3100
-    volumes:
-      - type: bind
-        source: ${BASE_DIR}/loki/etc/loki
-        target: /etc/loki
-      - type: bind
-        source: ${DATA_DIR}/loki/chunks
-        target: /etc/loki/chunks
-      - type: bind
-        source: ${DATA_DIR}/loki/rules
-        target: /etc/loki/rules
-    restart: unless-stopped
-
-
 networks:
   default:
     name: monitoring_network
