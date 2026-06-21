@@ -12,7 +12,7 @@ NFTABLES_DEST           := $(PREFIX)/etc/nftables.conf
 BASE_DIR                := $(shell pwd)
 NETWORK_NAME            := monitoring_network
 
-.PHONY: help config service install uninstall firewall network enable start stop status logs enable-prometheus start-prometheus stop-prometheus status-prometheus logs-prometheus
+.PHONY: help config service install uninstall firewall network
 
 help:
 	@echo "Usage: sudo make <target>"
@@ -25,19 +25,7 @@ help:
 	echo "  uninstall  Disable and remove the systemd units, config file, and network"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
-	echo "Operations (compose stack):"
-	echo "  enable   Enable monitoring.service at boot"
-	echo "  start    Start monitoring.service"
-	echo "  stop     Stop monitoring.service"
-	echo "  status   Show monitoring.service status"
-	echo "  logs     Follow monitoring.service logs"
-	echo ""
-	echo "Operations (standalone Prometheus):"
-	echo "  enable-prometheus   Enable prometheus.service at boot"
-	echo "  start-prometheus    Start prometheus.service"
-	echo "  stop-prometheus     Stop prometheus.service"
-	echo "  status-prometheus   Show prometheus.service status"
-	echo "  logs-prometheus     Follow prometheus.service logs"
+	echo "Use systemctl/journalctl directly to manage monitoring.service and prometheus.service."
 
 $(CONF_DEST):
 	@set -euo pipefail
@@ -150,7 +138,7 @@ $(SERVICE_DEST): $(CONF_DEST) $(SERVICE_SRC)
 	chown "$$PUID:$$PGID" "$(SERVICE_DEST)"
 	systemctl daemon-reload
 	echo "Unit installed: $(SERVICE_DEST)"
-	echo "Next: sudo make enable && sudo make start"
+	echo "Next: sudo systemctl enable --now monitoring.service"
 
 $(PROMETHEUS_SERVICE_DEST): $(CONF_DEST) $(PROMETHEUS_SERVICE_SRC)
 	@set -euo pipefail
@@ -163,7 +151,7 @@ $(PROMETHEUS_SERVICE_DEST): $(CONF_DEST) $(PROMETHEUS_SERVICE_SRC)
 	chown "$$PUID:$$PGID" "$(PROMETHEUS_SERVICE_DEST)"
 	systemctl daemon-reload
 	echo "Unit installed: $(PROMETHEUS_SERVICE_DEST)"
-	echo "Next: sudo make enable-prometheus && sudo make start-prometheus"
+	echo "Next: sudo systemctl enable --now prometheus.service"
 
 service: $(SERVICE_DEST) $(PROMETHEUS_SERVICE_DEST)
 
@@ -180,33 +168,3 @@ uninstall:
 	rmdir --ignore-fail-on-non-empty "$(PREFIX)/etc/monitoring" 2>/dev/null || true
 	docker network rm $(NETWORK_NAME) 2>/dev/null || true
 	echo "Uninstalled"
-
-enable:
-	@systemctl enable monitoring.service
-
-start:
-	@systemctl start monitoring.service
-
-stop:
-	@systemctl stop monitoring.service
-
-status:
-	@systemctl status monitoring.service
-
-logs:
-	@journalctl -u monitoring.service -f
-
-enable-prometheus:
-	@systemctl enable prometheus.service
-
-start-prometheus:
-	@systemctl start prometheus.service
-
-stop-prometheus:
-	@systemctl stop prometheus.service
-
-status-prometheus:
-	@systemctl status prometheus.service
-
-logs-prometheus:
-	@journalctl -u prometheus.service -f

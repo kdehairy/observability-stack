@@ -125,4 +125,4 @@ Control via systemd unit files or Makefile:
 - **Network**: `sudo make network` - creates the external `monitoring_network` Docker network
 - **Service file**: `sudo make service` - renders and installs both `monitoring.service` and `prometheus.service`
 - **Firewall**: `sudo nft -f nftables.conf` - applies firewall rules (requires network interface input)
-- Prometheus-specific ops targets: `make enable-prometheus`, `start-prometheus`, `stop-prometheus`, `status-prometheus`, `logs-prometheus`
+- Operations: use `systemctl`/`journalctl` directly on `monitoring.service` and `prometheus.service` (no Makefile wrappers)
