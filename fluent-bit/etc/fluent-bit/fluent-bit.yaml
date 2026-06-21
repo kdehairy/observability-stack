@@ -10,22 +10,25 @@ pipeline:
       listen: 0.0.0.0
       port: 5140
       mode: tcp
-
-    - name: syslog
-      parser: syslog-rfc3164-local
-      listen: 0.0.0.0
-      port: 5140
-      mode: udp
+      tag: nginx.access.<ident>
 
   filters:
-    - name: modify
-      match: '*'
-      copy: ident service_name
+    - name: parser
+      match: nginx.access.*
+      key_name: message
+      parser: json
+      reserve_data: true
+
+    - name: lua
+      match: nginx.access.*
+      script: /etc/fluent-bit/nginx_filters.lua
+      call: status_class
 
   outputs:
     - name: loki
-      match: '*'
+      match: nginx.access.*
       host: loki
       port: 3100
-      labels: job=fluentbit
-      label_keys: $host,$ident,$pid,$service_name
+      labels: job=nginx_access, host=$host
+      label_keys: $ident,$status_class,$request_method
+      remove_keys: status_class
