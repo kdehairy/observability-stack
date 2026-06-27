@@ -10,7 +10,7 @@ pipeline:
       listen: 0.0.0.0
       port: 5140
       mode: tcp
-      tag: nginx.access.<ident>
+      tag: nginx.<ident>
 
   filters:
     - name: parser
@@ -24,6 +24,22 @@ pipeline:
       script: /etc/fluent-bit/nginx_filters.lua
       call: status_class
 
+    - name: parser
+      match: nginx.error.*
+      key_name: message
+      parser: nginx-error
+      reserve_data: true
+
+    - name: lua
+      match: nginx.error.*
+      script: /etc/fluent-bit/nginx_filters.lua
+      call: error_class
+
+    - name: lua
+      match_regex: ^nginx\.(access|error)\.
+      script: /etc/fluent-bit/nginx_filters.lua
+      call: ident_fix
+
   outputs:
     - name: loki
       match: nginx.access.*
@@ -32,3 +48,11 @@ pipeline:
       labels: job=nginx_access, host=$host
       label_keys: $ident,$status_class,$request_method
       remove_keys: status_class
+
+    - name: loki
+      match: nginx.error.*
+      host: loki
+      port: 3100
+      labels: job=nginx_error, host=$host
+      label_keys: $ident,$level
+      remove_keys: level

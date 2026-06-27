@@ -13,3 +13,33 @@ function status_class(tag, timestamp, record)
     end
     return 1, timestamp, record
 end
+
+function error_class(tag, timestamp, record)
+    local severity = record["severity"]
+    if severity then
+				severity = string.lower(severity:gsub('%[', ''):gsub('%]', ''))
+
+        if string.find(severity, '^err') then
+            record["level"] = "error"
+        elseif string.find(severity, '^warn') then
+            record["level"] = "warning"
+        elseif string.find(severity, '^notice') then
+            record["level"] = "notice"
+        elseif string.find(severity, '^info') then
+            record["level"] = "info"
+        else
+            record["level"] = "unknown"
+        end
+    end
+    return 1, timestamp, record
+end
+
+function ident_fix(tag, timestamp, record)
+	local _, ident = string.match(tag, "nginx%.(%w+)%.(%S+)")
+	if ident == nil then
+		return 1, timestamp, record
+	end
+
+	record["ident"] = ident
+	return 1, timestamp, record
+end
