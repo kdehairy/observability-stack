@@ -35,11 +35,9 @@ function error_class(tag, timestamp, record)
 end
 
 function ident_fix(tag, timestamp, record)
-	local _, ident = string.match(tag, "nginx%.(%w+)%.(%S+)")
-	if ident == nil then
-		return 1, timestamp, record
+	local ident = record["ident"]
+	if ident then
+		record["ident"] = ident:gsub("^%a+%.%a+%.", "")
 	end
-
-	record["ident"] = ident
 	return 1, timestamp, record
 end

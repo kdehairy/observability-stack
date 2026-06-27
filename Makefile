@@ -21,7 +21,7 @@ BASE_DIR                     := $(shell pwd)
 NETWORK_NAME                 := monitoring_network
 ALL_SERVICES                 := prometheus.service grafana.service fluent-bit.service loki.service alertmanager.service blackbox-exporter.service
 
-.PHONY: help config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter firewall network start-all stop-all
+.PHONY: help config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx firewall network start-all stop-all
 
 help:
 	@echo "Usage: sudo make <target>"
@@ -44,6 +44,8 @@ help:
 	echo "  uninstall-loki  Disable and remove just the loki.service unit"
 	echo "  uninstall-alertmanager  Disable and remove just the alertmanager.service unit"
 	echo "  uninstall-blackbox-exporter  Disable and remove just the blackbox-exporter.service unit"
+	echo "  install-nginx  Copy nginx.conf and symlink sites-available into /etc/nginx/sites-enabled"
+	echo "  uninstall-nginx  Remove nginx.conf copy and symlinks from /etc/nginx/sites-enabled"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
 	echo "Operations:"
@@ -248,6 +250,30 @@ install-loki: network $(LOKI_SERVICE_DEST)
 install-alertmanager: network $(ALERTMANAGER_SERVICE_DEST)
 
 install-blackbox-exporter: network $(BLACKBOX_EXPORTER_SERVICE_DEST)
+
+install-nginx:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make install-nginx)"; exit 1; }
+	cp "$(BASE_DIR)/nginx/nginx.conf" "$(PREFIX)/etc/nginx/nginx.conf"
+	echo "Copied: $(PREFIX)/etc/nginx/nginx.conf"
+	for conf in "$(BASE_DIR)/nginx/sites-available/"*; do
+		ln -sf "$$conf" "$(PREFIX)/etc/nginx/sites-enabled/$$(basename $$conf)"
+		echo "Symlinked: $(PREFIX)/etc/nginx/sites-enabled/$$(basename $$conf)"
+	done
+	nginx -t && systemctl reload nginx
+	echo "Nginx reloaded"
+
+uninstall-nginx:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall-nginx)"; exit 1; }
+	rm -f "$(PREFIX)/etc/nginx/nginx.conf"
+	echo "Removed: $(PREFIX)/etc/nginx/nginx.conf"
+	for conf in "$(BASE_DIR)/nginx/sites-available/"*; do
+		rm -f "$(PREFIX)/etc/nginx/sites-enabled/$$(basename $$conf)"
+		echo "Removed: $(PREFIX)/etc/nginx/sites-enabled/$$(basename $$conf)"
+	done
+	nginx -t && systemctl reload nginx
+	echo "Nginx reloaded"
 
 uninstall:
 	@set -euo pipefail
