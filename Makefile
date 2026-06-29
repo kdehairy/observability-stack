@@ -17,11 +17,13 @@ BLACKBOX_EXPORTER_SERVICE_SRC  := blackbox-exporter/blackbox-exporter.service
 BLACKBOX_EXPORTER_SERVICE_DEST := $(PREFIX)/etc/systemd/system/blackbox-exporter.service
 NFTABLES_SRC                 := nftables.conf
 NFTABLES_DEST                := $(PREFIX)/etc/nftables.conf
+SYSLOG_NG_CONF_D_SRC         := syslog-ng/conf.d
+SYSLOG_NG_CONF_D_DEST        := $(PREFIX)/etc/syslog-ng/conf.d
 BASE_DIR                     := $(shell pwd)
 NETWORK_NAME                 := monitoring_network
 ALL_SERVICES                 := prometheus.service grafana.service fluent-bit.service loki.service alertmanager.service blackbox-exporter.service
 
-.PHONY: help config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx firewall network start-all stop-all
+.PHONY: help config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng firewall network start-all stop-all
 
 help:
 	@echo "Usage: sudo make <target>"
@@ -46,6 +48,8 @@ help:
 	echo "  uninstall-blackbox-exporter  Disable and remove just the blackbox-exporter.service unit"
 	echo "  install-nginx  Copy nginx.conf and symlink sites-available into /etc/nginx/sites-enabled"
 	echo "  uninstall-nginx  Remove nginx.conf copy and symlinks from /etc/nginx/sites-enabled"
+	echo "  install-syslog-ng  Copy syslog-ng drop-in configs to /etc/syslog-ng/conf.d and reload"
+	echo "  uninstall-syslog-ng  Remove syslog-ng drop-in configs and reload"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
 	echo "Operations:"
@@ -274,6 +278,24 @@ uninstall-nginx:
 	done
 	nginx -t && systemctl reload nginx
 	echo "Nginx reloaded"
+
+install-syslog-ng:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make install-syslog-ng)"; exit 1; }
+	mkdir -p "$(SYSLOG_NG_CONF_D_DEST)"
+	cp "$(BASE_DIR)/$(SYSLOG_NG_CONF_D_SRC)/"*.conf "$(SYSLOG_NG_CONF_D_DEST)/"
+	syslog-ng --syntax-only
+	systemctl reload syslog-ng
+	echo "syslog-ng configs installed: $(SYSLOG_NG_CONF_D_DEST)"
+	echo "Next: sudo systemctl enable --now syslog-ng"
+
+uninstall-syslog-ng:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall-syslog-ng)"; exit 1; }
+	rm -f "$(SYSLOG_NG_CONF_D_DEST)/20-nginx-access.conf" \
+	      "$(SYSLOG_NG_CONF_D_DEST)/20-nginx-error.conf"
+	systemctl reload syslog-ng
+	echo "syslog-ng configs removed"
 
 uninstall:
 	@set -euo pipefail

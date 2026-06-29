@@ -10,6 +10,7 @@ pipeline:
       listen: 0.0.0.0
       port: 5140
       mode: tcp
+      format: octet_counting
       tag: syslog
 
   filters:
@@ -52,8 +53,8 @@ pipeline:
       host: loki
       port: 3100
       labels: job=nginx_access, host=$host
-      label_keys: $ident,$status_class,$request_method
-      remove_keys: status_class
+      label_keys: $ident,$status_class,$request_method,$level
+      remove_keys: status_class,level
 
     - name: loki
       match: nginx.error
