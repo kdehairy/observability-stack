@@ -15,6 +15,7 @@ parsers:
     time_key: time
     time_format: '%b %e %H:%M:%S'
     time_keep: true
+    time_system_timezone: true
 
   - name: nginx-error
     format: regex
