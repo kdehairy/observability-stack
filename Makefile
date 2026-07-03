@@ -285,7 +285,7 @@ install-syslog-ng:
 	mkdir -p "$(SYSLOG_NG_CONF_D_DEST)"
 	cp "$(BASE_DIR)/$(SYSLOG_NG_CONF_D_SRC)/"*.conf "$(SYSLOG_NG_CONF_D_DEST)/"
 	syslog-ng --syntax-only
-	systemctl reload syslog-ng
+	systemctl reload syslog-ng@default.service
 	echo "syslog-ng configs installed: $(SYSLOG_NG_CONF_D_DEST)"
 	echo "Next: sudo systemctl enable --now syslog-ng"
 
