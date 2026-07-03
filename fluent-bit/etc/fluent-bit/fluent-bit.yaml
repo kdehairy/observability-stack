@@ -54,6 +54,11 @@ pipeline:
       script: /etc/fluent-bit/nginx_filters.lua
       call: ident_fix
 
+    - name: lua
+      match: router
+      script: /etc/fluent-bit/router_filters.lua
+      call: router_level
+
   outputs:
     - name: loki
       match: nginx.access
@@ -76,4 +81,5 @@ pipeline:
       host: loki
       port: 3100
       labels: job=router_syslog, host=$host
-      label_keys: $ident
+      label_keys: $ident,$level
+      remove_keys: level
