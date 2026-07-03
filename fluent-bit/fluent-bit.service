@@ -13,6 +13,7 @@ ExecStart=/usr/bin/docker run --rm --name fluent-bit \
   -u ${PUID}:${PGID} \
   -e TZ=Europe/Amsterdam \
   -p ${FLUENT_BIT_PORT}:5140 \
+  -p ${FLUENT_BIT_PORT}:5140/udp \
   -v ${BASE_DIR}/fluent-bit/etc/fluent-bit:/etc/fluent-bit \
   -v ${DATA_DIR}/fluent-bit:/var/log/fluent-bit \
   cr.fluentbit.io/fluent/fluent-bit:5.0 \
