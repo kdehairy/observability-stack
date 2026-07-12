@@ -18,13 +18,68 @@ route:
       group_interval: 5m
       repeat_interval: 4h
 
+      routes:
+        # Map severity to ntfy priority for Grafana-originated alerts too
+        - matchers:
+            - severity = "critical"
+          receiver: ntfy-grafana-critical
+        - matchers:
+            - severity = "warning"
+          receiver: ntfy-grafana-warning
+        - matchers:
+            - severity = "info"
+          receiver: ntfy-grafana-info
+
+    # Map severity to ntfy priority (critical/warning/info); anything else
+    # (no severity label, or an unrecognized value) falls through to the
+    # plain "ntfy" receiver below at ntfy's default priority.
+    - matchers:
+        - severity = "critical"
+      receiver: ntfy-critical
+    - matchers:
+        - severity = "warning"
+      receiver: ntfy-warning
+    - matchers:
+        - severity = "info"
+      receiver: ntfy-info
+
 receivers:
   - name: ntfy
     webhook_configs:
       - url: 'https://ntfy.sh/kdehairy_uptime_alert?template=alertmanager'
         send_resolved: true
 
+  - name: ntfy-critical
+    webhook_configs:
+      - url: 'https://ntfy.sh/kdehairy_uptime_alert?template=alertmanager&priority=urgent'
+        send_resolved: true
+
+  - name: ntfy-warning
+    webhook_configs:
+      - url: 'https://ntfy.sh/kdehairy_uptime_alert?template=alertmanager&priority=high'
+        send_resolved: true
+
+  - name: ntfy-info
+    webhook_configs:
+      - url: 'https://ntfy.sh/kdehairy_uptime_alert?template=alertmanager&priority=low'
+        send_resolved: true
+
   - name: ntfy-grafana
     webhook_configs:
       - url: 'https://ntfy.sh/kdehairy_home_monitors?template=alertmanager'
+        send_resolved: true
+
+  - name: ntfy-grafana-critical
+    webhook_configs:
+      - url: 'https://ntfy.sh/kdehairy_home_monitors?template=alertmanager&priority=urgent'
+        send_resolved: true
+
+  - name: ntfy-grafana-warning
+    webhook_configs:
+      - url: 'https://ntfy.sh/kdehairy_home_monitors?template=alertmanager&priority=high'
+        send_resolved: true
+
+  - name: ntfy-grafana-info
+    webhook_configs:
+      - url: 'https://ntfy.sh/kdehairy_home_monitors?template=alertmanager&priority=low'
         send_resolved: true

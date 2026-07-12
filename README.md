@@ -53,6 +53,7 @@ Run `sudo make install` as root to set up the monitoring stack:
 - Routes alerts via `ntfy.sh` webhooks:
   - `kdehairy_uptime_alert` for general alerts
   - `kdehairy_home_monitors` for Grafana-originated alerts
+- Within each topic, the `severity` label picks the ntfy priority: `critical` → urgent, `warning` → high, `info` → low, anything else → ntfy's default
 - Alert grouping: 30s wait, 5m interval, 4h repeat
 - Sends resolved alerts
 
