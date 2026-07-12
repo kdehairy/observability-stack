@@ -1,0 +1,71 @@
+mainmenu "monitoring-stack configuration"
+
+menu "Paths & User"
+
+config DATA_DIR
+	string "Data directory for persistent volumes"
+	default "$(BASE_DIR)"
+	help
+	  Directory where persistent container data (Prometheus TSDB, Grafana
+	  data, Loki chunks, Alertmanager state, Fluent Bit buffers) is stored.
+
+config SYSTEM_USER
+	string "System username for monitoring services"
+	default "monitoring"
+	help
+	  All containers run under this user's UID/GID. If the user does not
+	  already exist, 'make config' will offer to create it.
+
+endmenu
+
+menu "Network"
+
+config DNS_SERVERS
+	string "DNS servers, comma-separated"
+	default "1.1.1.1"
+	help
+	  DNS server(s) used by all containers.
+
+config GRAFANA_PASSWORD
+	string "Grafana admin password"
+	default "admin"
+	help
+	  Initial Grafana admin password (GF_SECURITY_ADMIN_PASSWORD). Stored
+	  in plaintext in .config and in /etc/monitoring/monitoring.conf,
+	  same as before.
+
+endmenu
+
+menu "Service Ports"
+
+config PROMETHEUS_PORT
+	int "Prometheus host port"
+	default 9090
+	range 1 65535
+
+config GRAFANA_PORT
+	int "Grafana host port"
+	default 3000
+	range 1 65535
+
+config BLACKBOX_EXPORTER_PORT
+	int "Blackbox Exporter host port"
+	default 9115
+	range 1 65535
+
+config ALERTMANAGER_PORT
+	int "Alertmanager host port"
+	default 9093
+	range 1 65535
+
+config LOKI_PORT
+	int "Loki host port"
+	default 3100
+	range 1 65535
+
+config FLUENT_BIT_PORT
+	int "Fluent Bit host port"
+	default 514
+	range 1 65535
+
+endmenu

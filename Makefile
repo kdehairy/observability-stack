@@ -22,14 +22,17 @@ SYSLOG_NG_CONF_D_DEST        := $(PREFIX)/etc/syslog-ng/conf.d
 BASE_DIR                     := $(shell pwd)
 NETWORK_NAME                 := monitoring_network
 ALL_SERVICES                 := prometheus.service grafana.service fluent-bit.service loki.service alertmanager.service blackbox-exporter.service
+KCONFIG                      := $(BASE_DIR)/Kconfig
+DOTCONFIG                    := $(BASE_DIR)/.config
 
-.PHONY: help config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng firewall network start-all stop-all
+.PHONY: help menuconfig config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng firewall network start-all stop-all
 
 help:
-	@echo "Usage: sudo make <target>"
+	@echo "Usage: make <target>"
 	echo ""
 	echo "Setup:"
-	echo "  config   Prompt for parameters, write $(CONF_DEST), create data dirs"
+	echo "  menuconfig  Choose parameters via a curses menu, write $(DOTCONFIG) (run as your normal user)"
+	echo "  config   Translate $(DOTCONFIG) into $(CONF_DEST), create data dirs (run as root)"
 	echo "  network  Create the external monitoring_network Docker network"
 	echo "  service  Render and install all standalone systemd unit files from $(CONF_DEST)"
 	echo "  install    Run network then service"
@@ -58,14 +61,19 @@ help:
 	echo ""
 	echo "Use systemctl/journalctl directly to manage individual units."
 
+menuconfig:
+	@set -euo pipefail
+	command -v menuconfig >/dev/null || { echo "Error: menuconfig not found. Install with: sudo pacman -S python-kconfiglib"; exit 1; }
+	BASE_DIR="$(BASE_DIR)" KCONFIG_CONFIG="$(DOTCONFIG)" menuconfig "$(KCONFIG)"
+
 $(CONF_DEST):
 	@set -euo pipefail
 	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make config)"; exit 1; }
+	[[ -f "$(DOTCONFIG)" ]] || { echo "Error: $(DOTCONFIG) not found — run 'make menuconfig' first (as your normal user)"; exit 1; }
 
-	read -rp "Data directory for persistent volumes [$(BASE_DIR)]: " DATA_DIR
-	DATA_DIR=$${DATA_DIR:-$(BASE_DIR)}
+	set -a; source "$(DOTCONFIG)"; set +a
 
-	read -rp "System username for monitoring services: " SYSTEM_USER
+	SYSTEM_USER="$$CONFIG_SYSTEM_USER"
 	if ! id -u "$$SYSTEM_USER" &>/dev/null; then
 		read -rp "User '$$SYSTEM_USER' does not exist — create it? [y/N]: " yn
 		[[ "$$yn" =~ ^[Yy] ]] || { echo "Aborted."; exit 1; }
@@ -74,27 +82,7 @@ $(CONF_DEST):
 	SYSTEM_UID=$$(id -u "$$SYSTEM_USER")
 	SYSTEM_GID=$$(id -g "$$SYSTEM_USER")
 
-	read -rp "DNS servers, comma-separated [1.1.1.1]: " DNS_SERVERS
-	DNS_SERVERS=$${DNS_SERVERS:-1.1.1.1}
-
-	read -rsp "Grafana admin password [admin]: " GRAFANA_PASSWORD; echo
-	read -rsp "Retype password: " GRAFANA_PASSWORD_CONFIRM; echo
-	[[ "$$GRAFANA_PASSWORD" == "$$GRAFANA_PASSWORD_CONFIRM" ]] || { echo "Error: passwords do not match"; exit 1; }
-	GRAFANA_PASSWORD=$${GRAFANA_PASSWORD:-admin}
-
-	read -rp "Prometheus host port [9090]: " PROMETHEUS_PORT
-	PROMETHEUS_PORT=$${PROMETHEUS_PORT:-9090}
-	read -rp "Grafana host port [3000]: " GRAFANA_PORT
-	GRAFANA_PORT=$${GRAFANA_PORT:-3000}
-	read -rp "Blackbox Exporter host port [9115]: " BLACKBOX_EXPORTER_PORT
-	BLACKBOX_EXPORTER_PORT=$${BLACKBOX_EXPORTER_PORT:-9115}
-	read -rp "Alertmanager host port [9093]: " ALERTMANAGER_PORT
-	ALERTMANAGER_PORT=$${ALERTMANAGER_PORT:-9093}
-	read -rp "Loki host port [3100]: " LOKI_PORT
-	LOKI_PORT=$${LOKI_PORT:-3100}
-	read -rp "Fluent-bit host port [514]: " FLUENT_BIT_PORT
-	FLUENT_BIT_PORT=$${FLUENT_BIT_PORT:-514}
-	echo "FLUENT_BIT_DATA=$$DATA_DIR"
+	DATA_DIR="$$CONFIG_DATA_DIR"
 
 	mkdir -p "$(PREFIX)/etc/monitoring"
 	{
@@ -102,14 +90,14 @@ $(CONF_DEST):
 			echo "PGID=$$SYSTEM_GID"
 			echo "BASE_DIR=$(BASE_DIR)"
 			echo "DATA_DIR=$$DATA_DIR"
-			echo "DNS_SERVERS=$$DNS_SERVERS"
-			echo "GRAFANA_PASSWORD=$$GRAFANA_PASSWORD"
-			echo "PROMETHEUS_PORT=$$PROMETHEUS_PORT"
-			echo "GRAFANA_PORT=$$GRAFANA_PORT"
-			echo "BLACKBOX_EXPORTER_PORT=$$BLACKBOX_EXPORTER_PORT"
-			echo "ALERTMANAGER_PORT=$$ALERTMANAGER_PORT"
-			echo "LOKI_PORT=$$LOKI_PORT"
-			echo "FLUENT_BIT_PORT=$$FLUENT_BIT_PORT"
+			echo "DNS_SERVERS=$$CONFIG_DNS_SERVERS"
+			echo "GRAFANA_PASSWORD=$$CONFIG_GRAFANA_PASSWORD"
+			echo "PROMETHEUS_PORT=$$CONFIG_PROMETHEUS_PORT"
+			echo "GRAFANA_PORT=$$CONFIG_GRAFANA_PORT"
+			echo "BLACKBOX_EXPORTER_PORT=$$CONFIG_BLACKBOX_EXPORTER_PORT"
+			echo "ALERTMANAGER_PORT=$$CONFIG_ALERTMANAGER_PORT"
+			echo "LOKI_PORT=$$CONFIG_LOKI_PORT"
+			echo "FLUENT_BIT_PORT=$$CONFIG_FLUENT_BIT_PORT"
 		} > "$(CONF_DEST)"
 	chmod 600 "$(CONF_DEST)"
 	chown "$$SYSTEM_UID:$$SYSTEM_GID" "$(CONF_DEST)"
