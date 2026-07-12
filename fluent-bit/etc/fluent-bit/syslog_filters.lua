@@ -9,7 +9,7 @@ local severity_map = {
     [7] = "debug",
 }
 
-function router_level(tag, timestamp, record)
+function severity_level(tag, timestamp, record)
     local pri = tonumber(record["pri"])
     if pri then
         record["level"] = severity_map[pri % 8] or "unknown"
