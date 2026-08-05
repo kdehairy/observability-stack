@@ -4,7 +4,7 @@
 
 Home monitoring stack. Every service runs as a standalone Docker container managed by its own systemd unit — there is no Docker Compose involved:
 - **Prometheus** (port 9090): metrics collection from multiple targets (homeassistant, cloud, AI services). `prometheus.service`
-- **Grafana** (port 3000): admin password configurable (default: heroHERO). `grafana.service`
+- **Grafana** (port 3000): admin password configurable (default: admin). `grafana.service`
 - **Blackbox Exporter** (port 9115): HTTP and ICMP probes. `blackbox-exporter.service`
 - **Alertmanager** (port 9093): alert routing and notifications. `alertmanager.service`
 - **Fluent Bit** (host port 514, internal 5140): receives syslog and forwards to Loki. `fluent-bit.service`
@@ -12,30 +12,23 @@ Home monitoring stack. Every service runs as a standalone Docker container manag
 
 ## Parameterized Configuration
 
-All critical parameters are configured via Makefile prompts:
-- **PUID/PGID**: User IDs for container execution (asked during installation)
-- **BASE_DIR**: Base directory for monitoring stack (asked during installation)
-- **DATA_DIR**: Directory for persistent volumes (asked during installation)
-- **DNS_SERVERS**: DNS server address (default: `1.1.1.1`)
-- **GRAFANA_PASSWORD**: Grafana admin password (default: heroHERO, confirmed with double-entry)
+All critical parameters are chosen via a Kconfig-driven menu (`make menuconfig`) and written to `.config`:
+- **DATA_DIR**: Directory for persistent volumes (default: repo directory)
+- **SYSTEM_USER**: System username all containers run as (default: `monitoring`); PUID/PGID are resolved from this user, not prompted directly
+- **DNS_SERVERS**: DNS server(s), comma-separated (default: `1.1.1.1`)
+- **GRAFANA_PASSWORD**: Grafana admin password (default: `admin`)
 - **Service ports**: Prometheus (9090), Grafana (3000), Blackbox Exporter (9115), Alertmanager (9093), Loki (3100), Fluent Bit (514)
 
-**Important**: Configuration is written to `/etc/monitoring/monitoring.conf` (created by `make config`) with permissions 600 — readable only by the system user to protect sensitive information.
+`BASE_DIR` is not prompted — it's set automatically from the repo's location.
+
+**Important**: `.config` is then translated by `sudo make config` into `/etc/monitoring/monitoring.conf` with permissions 600 — readable only by the system user to protect sensitive information.
 
 ## Installation
 
-Run `sudo make install` as root to set up the monitoring stack:
-1. Prompts for: system username, DATA_DIR, DNS_SERVERS, GRAFANA_PASSWORD (with confirmation), and all service ports
-2. Creates `/etc/monitoring/monitoring.conf` with permissions 600 and ownership ${SYSTEM_UID}:${SYSTEM_GID}
-3. Creates the external `monitoring_network` Docker network shared by all six standalone containers
-4. Creates `prometheus.service`, `grafana.service`, `fluent-bit.service`, `loki.service`, `alertmanager.service`, and `blackbox-exporter.service` systemd units
-5. Creates Prometheus rules directory, Grafana configs, Alertmanager configs, and data directories with correct ownership
-6. Does **not** enable or start any service automatically
+Two steps, run in order:
 
-**Prerequisites:**
-- Run as root (`sudo make install`)
-- Script collects all user input for parameters
-- Creates required directories with proper permissions
+1. `make menuconfig` — as your normal user. Opens a curses menu to choose parameters and writes `.config`. Requires `python-kconfiglib` (`sudo pacman -S python-kconfiglib`).
+2. `sudo make install` — as root. Translates `.config` into `/etc/monitoring/monitoring.conf` (permissions 600, owned by the configured system user), creates the external `monitoring_network` Docker network, creates `prometheus.service`, `grafana.service`, `fluent-bit.service`, `loki.service`, `alertmanager.service`, and `blackbox-exporter.service` systemd units, and creates Prometheus rules directory, Grafana configs, Alertmanager configs, and data directories with correct ownership. Does **not** enable or start any service automatically.
 
 **Next steps after installation:**
 - Start everything: `sudo make start-all` (or `sudo systemctl enable --now <unit>...` per unit for boot-persistent enablement)
@@ -44,7 +37,8 @@ Run `sudo make install` as root to set up the monitoring stack:
 ## Configuration Files
 
 ### Prometheus (`prometheus/etc/prometheus/prometheus.yml`)
-- Scrapes: homeassistant.home:8123 (`/api/prometheus`), cloud.home:9292 (`/metrics`), ai.home:9100, ai.home:5000, model.cloud.home (`/metrics`)
+- Scrapes: homeassistant.home:8123 (`/api/prometheus`), telegraf.cloud.home:9292 (`/metrics`), ai.home:9100, ai.home:5000
+- An `ai-llama` job for llama.cpp metrics at `model.cloud.home` exists but is currently commented out
 - Intervals: 60s (general), 30s (AI targets and blackbox probes)
 - Routes alerts to alertmanager:9093
 - Reads rules from `/etc/prometheus/rules/*.yml`
@@ -87,10 +81,9 @@ All services bind mount `${BASE_DIR}`/`${DATA_DIR}` directories directly into th
 
 Services also resolve via `.local` and `.cloud.home` FQDNs on the host's DNS:
 - `homeassistant.home:8123` (Prometheus, Home Assistant)
-- `cloud.home:9292` (Telegraf)
+- `telegraf.cloud.home:9292` (Telegraf)
 - `ai.home:9100` (Node exporter)
 - `ai.home:5000` (AMD GPU exporter)
-- `ai.home:8082` (llama.cpp)
 - `grafana.cloud.home` (via Nginx)
 - `prometheus.cloud.home` (via Nginx)
 - `192.168.50.0/24` LAN for ICMP probes (Blackbox Exporter)
