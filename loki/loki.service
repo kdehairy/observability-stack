@@ -10,6 +10,8 @@ WorkingDirectory=${BASE_DIR}
 ExecStartPre=-/usr/bin/docker rm -f loki
 ExecStart=/usr/bin/docker run --rm --name loki \
   --network monitoring_network \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
   -u ${PUID}:${PGID} \
   -p ${LOKI_PORT}:3100 \
   -v ${BASE_DIR}/loki/etc/loki:/etc/loki \

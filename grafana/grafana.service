@@ -10,6 +10,8 @@ WorkingDirectory=${BASE_DIR}
 ExecStartPre=-/usr/bin/docker rm -f grafana
 ExecStart=/usr/bin/docker run --rm --name grafana \
   --network monitoring_network \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
   -u ${PUID}:${PGID} \
   -p ${GRAFANA_PORT}:3000 \
   -e GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD} \

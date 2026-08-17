@@ -10,6 +10,8 @@ WorkingDirectory=${BASE_DIR}
 ExecStartPre=-/usr/bin/docker rm -f alertmanager
 ExecStart=/usr/bin/docker run --rm --name alertmanager \
   --network monitoring_network \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
   -u ${PUID}:${PGID} \
   -p ${ALERTMANAGER_PORT}:9093 \
   -v ${BASE_DIR}/alertmanager/config:/etc/alertmanager \

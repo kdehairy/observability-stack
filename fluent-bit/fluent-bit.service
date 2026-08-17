@@ -10,6 +10,8 @@ WorkingDirectory=${BASE_DIR}
 ExecStartPre=-/usr/bin/docker rm -f fluent-bit
 ExecStart=/usr/bin/docker run --rm --name fluent-bit \
   --network monitoring_network \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
   -u ${PUID}:${PGID} \
   -e TZ=Europe/Amsterdam \
   -p ${FLUENT_BIT_PORT}:5140 \

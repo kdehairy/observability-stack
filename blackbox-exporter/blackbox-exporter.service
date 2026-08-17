@@ -10,6 +10,8 @@ WorkingDirectory=${BASE_DIR}
 ExecStartPre=-/usr/bin/docker rm -f blackbox-exporter
 ExecStart=/usr/bin/docker run --rm --name blackbox-exporter \
   --network monitoring_network \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
   -u ${PUID}:${PGID} \
   --cap-add NET_RAW \
   -p ${BLACKBOX_EXPORTER_PORT}:9115 \
