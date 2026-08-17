@@ -17,6 +17,7 @@ ExecStart=/usr/bin/docker run --rm --name loki \
   -v ${BASE_DIR}/loki/etc/loki:/etc/loki \
   -v ${DATA_DIR}/loki/chunks:/etc/loki/chunks \
   -v ${DATA_DIR}/loki/rules:/etc/loki/rules \
+  -v ${DATA_DIR}/loki/compactor:/etc/loki/compactor \
   grafana/loki:latest \
   -config.file=/etc/loki/loki-config.yaml
 ExecStop=/usr/bin/docker stop loki

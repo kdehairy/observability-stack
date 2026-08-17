@@ -117,6 +117,7 @@ $(CONF_DEST):
 	mkdir -p "$$DATA_DIR/alertmanager"
 	mkdir -p "$$DATA_DIR/loki/chunks"
 	mkdir -p "$$DATA_DIR/loki/rules"
+	mkdir -p "$$DATA_DIR/loki/compactor"
 	mkdir -p "$$DATA_DIR/fluent-bit"
 	mkdir -p "$(BASE_DIR)/fluent-bit/etc/fluent-bit"
 	chown -R "$$SYSTEM_UID:$$SYSTEM_GID" "$(BASE_DIR)/prometheus/etc"

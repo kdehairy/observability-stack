@@ -19,9 +19,16 @@ common:
       store: inmemory
 
 limits_config:
-  retention_period: 24h
+  retention_period: 7d
   metric_aggregation_enabled: true
   enable_multi_variant_queries: true
+
+compactor:
+  working_directory: /etc/loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
 
 schema_config:
   configs:
