@@ -71,7 +71,7 @@ menuconfig:
 	command -v menuconfig >/dev/null || { echo "Error: menuconfig not found. Install with: sudo pacman -S python-kconfiglib"; exit 1; }
 	BASE_DIR="$(BASE_DIR)" KCONFIG_CONFIG="$(DOTCONFIG)" menuconfig "$(KCONFIG)"
 
-$(CONF_DEST):
+$(CONF_DEST): $(DOTCONFIG) Makefile
 	@set -euo pipefail
 	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make config)"; exit 1; }
 	[[ -f "$(DOTCONFIG)" ]] || { echo "Error: $(DOTCONFIG) not found — run 'make menuconfig' first (as your normal user)"; exit 1; }
