@@ -27,7 +27,7 @@ ALL_SERVICES                 := prometheus.service grafana.service fluent-bit.se
 KCONFIG                      := $(BASE_DIR)/Kconfig
 DOTCONFIG                    := $(BASE_DIR)/.config
 
-.PHONY: help menuconfig config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng install-logrotate uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng uninstall-logrotate firewall network start-all stop-all
+.PHONY: help menuconfig config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng install-logrotate uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng uninstall-logrotate firewall network start-all stop-all restart-all
 
 help:
 	@echo "Usage: make <target>"
@@ -62,6 +62,7 @@ help:
 	echo "Operations:"
 	echo "  start-all  Start all six standalone systemd units"
 	echo "  stop-all   Stop all six standalone systemd units"
+	echo "  restart-all  Restart all six standalone systemd units"
 	echo ""
 	echo "Use systemctl/journalctl directly to manage individual units."
 
@@ -377,3 +378,9 @@ stop-all:
 	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make stop-all)"; exit 1; }
 	systemctl stop $(ALL_SERVICES)
 	echo "Stopped: $(ALL_SERVICES)"
+
+restart-all:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make restart-all)"; exit 1; }
+	systemctl restart $(ALL_SERVICES)
+	echo "Restarted: $(ALL_SERVICES)"
