@@ -19,13 +19,15 @@ NFTABLES_SRC                 := nftables.conf
 NFTABLES_DEST                := $(PREFIX)/etc/nftables.conf
 SYSLOG_NG_CONF_D_SRC         := syslog-ng/conf.d
 SYSLOG_NG_CONF_D_DEST        := $(PREFIX)/etc/syslog-ng/conf.d
+LOGROTATE_SRC                 := nginx/logrotate.d/monitoring-stack.conf
+LOGROTATE_DEST                := $(PREFIX)/etc/logrotate.d/monitoring-stack
 BASE_DIR                     := $(shell pwd)
 NETWORK_NAME                 := monitoring_network
 ALL_SERVICES                 := prometheus.service grafana.service fluent-bit.service loki.service alertmanager.service blackbox-exporter.service
 KCONFIG                      := $(BASE_DIR)/Kconfig
 DOTCONFIG                    := $(BASE_DIR)/.config
 
-.PHONY: help menuconfig config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng firewall network start-all stop-all
+.PHONY: help menuconfig config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng install-logrotate uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng uninstall-logrotate firewall network start-all stop-all
 
 help:
 	@echo "Usage: make <target>"
@@ -53,6 +55,8 @@ help:
 	echo "  uninstall-nginx  Remove nginx.conf copy and symlinks from /etc/nginx/sites-enabled"
 	echo "  install-syslog-ng  Copy syslog-ng drop-in configs to /etc/syslog-ng/conf.d and reload"
 	echo "  uninstall-syslog-ng  Remove syslog-ng drop-in configs and reload"
+	echo "  install-logrotate  Copy nginx log rotation config to /etc/logrotate.d"
+	echo "  uninstall-logrotate  Remove nginx log rotation config"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
 	echo "Operations:"
@@ -284,6 +288,19 @@ uninstall-syslog-ng:
 	      "$(SYSLOG_NG_CONF_D_DEST)/20-nginx-error.conf"
 	systemctl reload syslog-ng
 	echo "syslog-ng configs removed"
+
+install-logrotate:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make install-logrotate)"; exit 1; }
+	mkdir -p "$(PREFIX)/etc/logrotate.d"
+	cp "$(BASE_DIR)/$(LOGROTATE_SRC)" "$(LOGROTATE_DEST)"
+	echo "Installed: $(LOGROTATE_DEST)"
+
+uninstall-logrotate:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall-logrotate)"; exit 1; }
+	rm -f "$(LOGROTATE_DEST)"
+	echo "Removed: $(LOGROTATE_DEST)"
 
 uninstall:
 	@set -euo pipefail
