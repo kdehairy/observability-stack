@@ -53,7 +53,6 @@ scrape_configs:
       - targets:
         - http://homeassistant.home:8123
         - http://darwish.cloud.home/health
-        - http://music.home/api/v1/ping
         labels:
           module: http_2xx
       - targets:
