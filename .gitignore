@@ -1,3 +1,4 @@
 .env
 target/
 .config
+/alertmanager/config/alertmanager.yml

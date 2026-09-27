@@ -13,6 +13,9 @@ LOKI_SERVICE_SRC             := loki/loki.service
 LOKI_SERVICE_DEST            := $(PREFIX)/etc/systemd/system/loki.service
 ALERTMANAGER_SERVICE_SRC     := alertmanager/alertmanager.service
 ALERTMANAGER_SERVICE_DEST    := $(PREFIX)/etc/systemd/system/alertmanager.service
+ALERTMANAGER_CONFIG_TPL      := alertmanager/config/alertmanager.yml.tpl
+ALERTMANAGER_NTFY_TPL        := alertmanager/config/ntfy-template.yml
+ALERTMANAGER_CONFIG          := alertmanager/config/alertmanager.yml
 BLACKBOX_EXPORTER_SERVICE_SRC  := blackbox-exporter/blackbox-exporter.service
 BLACKBOX_EXPORTER_SERVICE_DEST := $(PREFIX)/etc/systemd/system/blackbox-exporter.service
 NFTABLES_SRC                 := nftables.conf
@@ -27,7 +30,7 @@ ALL_SERVICES                 := prometheus.service grafana.service fluent-bit.se
 KCONFIG                      := $(BASE_DIR)/Kconfig
 DOTCONFIG                    := $(BASE_DIR)/.config
 
-.PHONY: help menuconfig config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng install-logrotate uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng uninstall-logrotate firewall network start-all stop-all restart-all
+.PHONY: help menuconfig config alertmanager-config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng install-logrotate uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng uninstall-logrotate firewall network start-all stop-all restart-all
 
 help:
 	@echo "Usage: make <target>"
@@ -35,6 +38,7 @@ help:
 	echo "Setup:"
 	echo "  menuconfig  Choose parameters via a curses menu, write $(DOTCONFIG) (run as your normal user)"
 	echo "  config   Translate $(DOTCONFIG) into $(CONF_DEST), create data dirs (run as root)"
+	echo "  alertmanager-config  Render $(ALERTMANAGER_CONFIG_TPL) + $(ALERTMANAGER_NTFY_TPL) into $(ALERTMANAGER_CONFIG)"
 	echo "  network  Create the external monitoring_network Docker network"
 	echo "  service  Render and install all standalone systemd unit files from $(CONF_DEST)"
 	echo "  install    Run network then service"
@@ -207,6 +211,17 @@ $(LOKI_SERVICE_DEST): $(CONF_DEST) $(LOKI_SERVICE_SRC)
 	echo "Unit installed: $(LOKI_SERVICE_DEST)"
 	echo "Next: sudo systemctl enable --now loki.service"
 
+$(ALERTMANAGER_CONFIG): $(ALERTMANAGER_CONFIG_TPL) $(ALERTMANAGER_NTFY_TPL)
+	@set -euo pipefail
+	command -v yq >/dev/null || { echo "Error: yq not found. Install with: sudo pacman -S yq"; exit 1; }
+
+	NTFY_QUERY=$$(yq -r '"template=yes&title=" + (.title | rtrimstr("\n") | @uri) + "&message=" + (.message | rtrimstr("\n") | @uri) + "&priority=" + (.priority | rtrimstr("\n") | @uri)' "$(ALERTMANAGER_NTFY_TPL)")
+	export NTFY_QUERY
+	envsubst '$$NTFY_QUERY' < "$(ALERTMANAGER_CONFIG_TPL)" > "$(ALERTMANAGER_CONFIG)"
+	echo "Generated: $(ALERTMANAGER_CONFIG)"
+
+alertmanager-config: $(ALERTMANAGER_CONFIG)
+
 $(ALERTMANAGER_SERVICE_DEST): $(CONF_DEST) $(ALERTMANAGER_SERVICE_SRC)
 	@set -euo pipefail
 	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make service)"; exit 1; }
@@ -245,7 +260,7 @@ install-fluent-bit: network $(FLUENT_BIT_SERVICE_DEST)
 
 install-loki: network $(LOKI_SERVICE_DEST)
 
-install-alertmanager: network $(ALERTMANAGER_SERVICE_DEST)
+install-alertmanager: network $(ALERTMANAGER_CONFIG) $(ALERTMANAGER_SERVICE_DEST)
 
 install-blackbox-exporter: network $(BLACKBOX_EXPORTER_SERVICE_DEST)
 
