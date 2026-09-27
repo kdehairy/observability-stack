@@ -20,7 +20,8 @@ ExecStart=/usr/bin/docker run --rm --name prometheus \
   --config.file=/etc/prometheus/prometheus.yml \
   --storage.tsdb.path=/prometheus \
   --storage.tsdb.retention.size=256GB \
-  --web.enable-admin-api
+  --web.enable-admin-api \
+  --web.external-url=http://prometheus.cloud.home
 ExecStop=/usr/bin/docker stop prometheus
 Restart=always
 RestartSec=10s

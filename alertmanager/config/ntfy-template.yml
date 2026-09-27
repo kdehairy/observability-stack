@@ -11,19 +11,13 @@
 # receiver per ntfy topic covers every severity (critical -> urgent, warning
 # -> high, info -> low, anything else -> default).
 title: |
-  {{ if eq .status "firing" }}🚨 Alert: {{ (first .alerts).labels.alertname }}{{ else }}✅ Resolved: {{ (first .alerts).labels.alertname }}{{ end }}
+  {{ if eq .status "firing" }}🚨 Alert: {{ (first .alerts).labels.instance }}{{ else }}✅ Resolved: {{ (first .alerts).labels.instance }}{{ end }}
 message: |
-  Status: {{ .status | title }}
-  Receiver: {{ .receiver }}
-  {{ range .alerts }}
-  Alert: {{ .labels.alertname }}
-  Instance: {{ .labels.instance }}
-  Severity: {{ .labels.severity }}
-  Starts at: {{ .startsAt }}
-  {{ if eq .status "resolved" }}Ends at: {{ .endsAt }}
-  {{ end }}{{ if .annotations.summary }}Summary: {{ .annotations.summary }}
-  {{ end }}{{ if .annotations.description }}Description: {{ .annotations.description }}
-  {{ end }}Source: {{ .generatorURL }}
-  {{ end }}
+  Severity: {{ (first .alerts).labels.severity }}
+  Starts at: {{ (first .alerts).startsAt }}
+  {{ if eq (first .alerts).status "resolved" }}Ends at: {{ (first .alerts).endsAt }}
+  {{ end }}{{ if (first .alerts).annotations.summary }}Summary: {{ (first .alerts).annotations.summary }}
+  {{ end }}{{ if (first .alerts).annotations.description }}Description: {{ (first .alerts).annotations.description }}
+  {{ end }}Source: {{ (first .alerts).generatorURL }}
 priority: |
   {{ if eq (first .alerts).labels.severity "critical" }}urgent{{ else if eq (first .alerts).labels.severity "warning" }}high{{ else if eq (first .alerts).labels.severity "info" }}low{{ else }}default{{ end }}
