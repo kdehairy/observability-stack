@@ -24,13 +24,17 @@ SYSLOG_NG_CONF_D_SRC         := syslog-ng/conf.d
 SYSLOG_NG_CONF_D_DEST        := $(PREFIX)/etc/syslog-ng/conf.d
 LOGROTATE_SRC                 := nginx/logrotate.d/monitoring-stack.conf
 LOGROTATE_DEST                := $(PREFIX)/etc/logrotate.d/monitoring-stack
+FAIL2BAN_JAIL_D_SRC           := fail2ban/jail.d
+FAIL2BAN_JAIL_D_DEST          := $(PREFIX)/etc/fail2ban/jail.d
+FAIL2BAN_FILTER_D_SRC         := fail2ban/filter.d
+FAIL2BAN_FILTER_D_DEST        := $(PREFIX)/etc/fail2ban/filter.d
 BASE_DIR                     := $(shell pwd)
 NETWORK_NAME                 := monitoring_network
 ALL_SERVICES                 := prometheus.service grafana.service fluent-bit.service loki.service alertmanager.service blackbox-exporter.service
 KCONFIG                      := $(BASE_DIR)/Kconfig
 DOTCONFIG                    := $(BASE_DIR)/.config
 
-.PHONY: help menuconfig config alertmanager-config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng install-logrotate uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng uninstall-logrotate firewall network start-all stop-all restart-all
+.PHONY: help menuconfig config alertmanager-config service install install-prometheus install-grafana install-fluent-bit install-loki install-alertmanager install-blackbox-exporter install-nginx install-syslog-ng install-logrotate install-fail2ban uninstall uninstall-prometheus uninstall-grafana uninstall-fluent-bit uninstall-loki uninstall-alertmanager uninstall-blackbox-exporter uninstall-nginx uninstall-syslog-ng uninstall-logrotate uninstall-fail2ban firewall network start-all stop-all restart-all
 
 help:
 	@echo "Usage: make <target>"
@@ -61,6 +65,8 @@ help:
 	echo "  uninstall-syslog-ng  Remove syslog-ng drop-in configs and reload"
 	echo "  install-logrotate  Copy nginx log rotation config to /etc/logrotate.d"
 	echo "  uninstall-logrotate  Remove nginx log rotation config"
+	echo "  install-fail2ban  Copy fail2ban jail/filter drop-ins to /etc/fail2ban and reload"
+	echo "  uninstall-fail2ban  Remove fail2ban jail/filter drop-ins and reload"
 	echo "  firewall   Render and apply nftables rules (requires config)"
 	echo ""
 	echo "Operations:"
@@ -318,6 +324,25 @@ uninstall-logrotate:
 	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall-logrotate)"; exit 1; }
 	rm -f "$(LOGROTATE_DEST)"
 	echo "Removed: $(LOGROTATE_DEST)"
+
+install-fail2ban:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make install-fail2ban)"; exit 1; }
+	command -v fail2ban-client >/dev/null || { echo "Error: fail2ban not installed (sudo pacman -S fail2ban)"; exit 1; }
+	mkdir -p "$(FAIL2BAN_JAIL_D_DEST)" "$(FAIL2BAN_FILTER_D_DEST)"
+	cp "$(BASE_DIR)/$(FAIL2BAN_JAIL_D_SRC)/"*.conf "$(FAIL2BAN_JAIL_D_DEST)/"
+	cp "$(BASE_DIR)/$(FAIL2BAN_FILTER_D_SRC)/"*.conf "$(FAIL2BAN_FILTER_D_DEST)/"
+	fail2ban-client -t
+	systemctl reload fail2ban 2>/dev/null || systemctl restart fail2ban
+	echo "fail2ban configs installed"
+	echo "Next: sudo systemctl enable --now fail2ban"
+
+uninstall-fail2ban:
+	@set -euo pipefail
+	[[ "$$(id -u)" -eq 0 ]] || { echo "Error: run as root (sudo make uninstall-fail2ban)"; exit 1; }
+	rm -f "$(FAIL2BAN_JAIL_D_DEST)/openwebui.conf" "$(FAIL2BAN_FILTER_D_DEST)/openwebui-scanners.conf"
+	systemctl reload fail2ban 2>/dev/null || true
+	echo "fail2ban configs removed"
 
 uninstall:
 	@set -euo pipefail
