@@ -38,9 +38,6 @@ scrape_configs:
       - targets: ['model.cloud.home']
         labels:
           model: Baloza-v0.3
-      - targets: ['model.cloud.home']
-        labels:
-          model: ninni-v0.1
     relabel_configs:
       # Pass the model name as a query parameter on the scrape request
       - source_labels: [model]
@@ -57,6 +54,7 @@ scrape_configs:
       - targets:
         - http://homeassistant.home:8123
         - http://darwish.cloud.home/health
+        - http://model.cloud.home/health
         labels:
           module: http_2xx
       - targets:

@@ -38,7 +38,7 @@ Two steps, run in order:
 
 ### Prometheus (`prometheus/etc/prometheus/prometheus.yml`)
 - Scrapes: homeassistant.home:8123 (`/api/prometheus`), telegraf.cloud.home:9292 (`/metrics`), ai.home:9100, ai.home:5000
-- An `ai-llama` job for llama.cpp metrics at `model.cloud.home` exists but is currently commented out
+- `ai-llama` job: llama.cpp router metrics at `model.cloud.home/metrics`, one target per router model preset (currently just `Baloza-v0.3`), passed as `?model=<name>&autoload=false` so a scrape never loads or evicts a model. Add/remove a target when presets change in ai-stack's `services/llama/models.ini`; a target for a preset that no longer exists returns HTTP 400 and shows as `up=0`
 - Intervals: 60s (general), 30s (AI targets and blackbox probes)
 - Routes alerts to alertmanager:9093
 - Reads rules from `/etc/prometheus/rules/*.yml`
